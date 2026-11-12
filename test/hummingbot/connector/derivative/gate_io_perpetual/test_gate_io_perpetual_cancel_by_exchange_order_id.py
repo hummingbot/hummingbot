@@ -131,7 +131,8 @@ class GateIoPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
         with patch.object(self.exchange, "_api_delete", side_effect=fake_delete), \
                 patch.object(self.exchange._order_tracker, "process_order_update",
                              side_effect=lambda update: processed.append(update) or True):
-            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "347058646899348430"))
+            asyncio.get_event_loop().run_until_complete(
+                self.exchange.cancel_by_exchange_order_id("BTC-USDT", "347058646899348430"))
 
         self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
         self.assertEqual(OrderState.CANCELED, processed[0].new_state)

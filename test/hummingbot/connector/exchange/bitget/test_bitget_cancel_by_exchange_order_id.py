@@ -23,6 +23,8 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
 
 
