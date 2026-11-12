@@ -127,46 +127,27 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
         self.exchange.in_flight_orders[order.client_order_id] = order
 
         processed = []
-        with patch.object(self.exchange, "_api_post", side_effect=fake_post), \
-                patch.object(self.exchange._order_tracker, "process_order_update",
-                             side_effect=lambda update: processed.append(update) or True):
+        # ``_is_unified_account`` probes the live API, so it must be mocked too:
+        # unmocked, this test makes a real request and fails on auth instead.
+        with (
+            patch.object(self.exchange, "_is_unified_account", AsyncMock(return_value=False)),
+            patch.object(self.exchange, "exchange_symbol_associated_to_pair",
+                         AsyncMock(return_value="BTCUSDT")),
+            patch.object(self.exchange, "product_type_associated_to_trading_pair",
+                         AsyncMock(return_value="USDT-FUTURES")),
+            patch.object(self.exchange, "get_buy_collateral_token", return_value="USDT"),
+            patch.object(self.exchange, "_api_post", side_effect=fake_post),
+            patch.object(
+                self.exchange._order_tracker,
+                "process_order_update",
+                side_effect=lambda update: processed.append(update) or True,
+            ),
+        ):
             self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "5566778899"))
 
         self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
         self.assertEqual(OrderState.CANCELED, processed[0].new_state)
         self.assertEqual("HBOT-1", processed[0].client_order_id)
-
-    def test_tracked_order_is_settled_through_the_tracker(self):
-        """The OrderCancelled event must fire, not just the state field change.
-
-        Setting ``current_state`` directly skips the event and leaves the order in
-        active tracking, so it keeps being polled and no listener learns it is gone.
-        """
-        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
-            return {"code": CONSTANTS.RET_CODE_OK, "msg": "success"}
-
-        order = InFlightOrder(
-            client_order_id="HBOT-1",
-            trading_pair="BTC-USDT",
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1"),
-            price=Decimal("100"),
-            creation_timestamp=1.0,
-            exchange_order_id="5566778899",
-        )
-        self.exchange.in_flight_orders[order.client_order_id] = order
-
-        processed = []
-        with patch.object(self.exchange, "_api_post", side_effect=fake_post), \
-                patch.object(self.exchange._order_tracker, "process_order_update",
-                             side_effect=lambda update: processed.append(update) or True):
-            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "5566778899"))
-
-        self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
-        self.assertEqual(OrderState.CANCELED, processed[0].new_state)
-        self.assertEqual("HBOT-1", processed[0].client_order_id)
-
 
 if __name__ == "__main__":
     unittest.main()

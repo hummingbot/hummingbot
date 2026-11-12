@@ -124,10 +124,17 @@ class BitgetCancelByExchangeOrderIdTest(unittest.TestCase):
         processed = []
         # ``_is_unified_account`` probes the live API, so it must be mocked too:
         # unmocked, this test makes a real request and fails on auth instead.
-        with patch.object(self.exchange, "_is_unified_account", AsyncMock(return_value=False)),                 patch.object(self.exchange, "exchange_symbol_associated_to_pair",
-                             AsyncMock(return_value="BTCUSDT")),
-                patch.object(self.exchange, "_api_post", side_effect=fake_post),                 patch.object(self.exchange._order_tracker, "process_order_update",
-                             side_effect=lambda update: processed.append(update) or True):
+        with (
+            patch.object(self.exchange, "_is_unified_account", AsyncMock(return_value=False)),
+            patch.object(self.exchange, "exchange_symbol_associated_to_pair",
+                         AsyncMock(return_value="BTCUSDT")),
+            patch.object(self.exchange, "_api_post", side_effect=fake_post),
+            patch.object(
+                self.exchange._order_tracker,
+                "process_order_update",
+                side_effect=lambda update: processed.append(update) or True,
+            ),
+        ):
             self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "1234567890"))
 
         self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
