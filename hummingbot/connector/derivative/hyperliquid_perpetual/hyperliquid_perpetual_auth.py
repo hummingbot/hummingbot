@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from collections import OrderedDict
 from typing import Any
@@ -12,6 +13,7 @@ from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_pe
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils import (
     order_spec_to_order_wire,
 )
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -76,6 +78,8 @@ class HyperliquidPerpetualAuth(AuthBase):
         self._api_secret: str = api_secret
         self._vault_address = api_address if use_vault else None
         self.wallet = wallet
+        self._nonce = NonceCreator.for_milliseconds()
+        self._nonce_lock = threading.Lock()
 
     @staticmethod
     def is_key_authorized(derived_address: str, account_address: str, approved_agents) -> bool:
@@ -252,7 +256,8 @@ class HyperliquidPerpetualAuth(AuthBase):
         """
         Adds authentication to a request.
         """
-        timestamp = int(self._get_timestamp() * 1e3)
+        with self._nonce_lock:
+            timestamp = self._nonce.get_tracking_nonce(timestamp=self._get_timestamp())
         payload = {}
         data = json.loads(params) if params is not None else {}
 
