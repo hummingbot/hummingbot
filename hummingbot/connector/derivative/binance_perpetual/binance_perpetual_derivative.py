@@ -24,7 +24,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -227,6 +227,67 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         if cancel_result.get("status") == "CANCELED":
             return True
         return False
+
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order by the *venue's* id, without reading ``in_flight_orders``.
+
+        ``cancel`` resolves a client order id through the in-flight tracker, so an
+        order whose owning process is gone cannot be cancelled at all: it rests,
+        holds margin and can still fill long after the session that placed it ended.
+
+        Binance USD-M takes its own ``orderId`` on the same DELETE it uses for
+        ``origClientOrderId``, so the venue can be addressed directly.
+        """
+        if not exchange_order_id:
+            raise ValueError("cancel_by_exchange_order_id requires an exchange order id")
+
+        cancel_result = await self._api_delete(
+            path_url=CONSTANTS.ORDER_URL,
+            params={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                "orderId": exchange_order_id,
+            },
+            is_auth_required=True,
+            limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID,
+        )
+
+        if cancel_result.get("status") == "CANCELED":
+            self._settle_cancelled_order(exchange_order_id)
+            return exchange_order_id
+
+        if cancel_result.get("code") == -2011:
+            self.logger().debug(
+                f"Order {exchange_order_id} on {trading_pair} is already gone; nothing to cancel."
+            )
+            self._settle_cancelled_order(exchange_order_id)
+            return exchange_order_id
+
+        raise IOError(
+            f"Can't cancel order {exchange_order_id} on {trading_pair}: {cancel_result}"
+        )
+
+    def _settle_cancelled_order(self, exchange_order_id: str) -> None:
+        """Mark a tracked order cancelled, through the tracker rather than its field.
+
+        Setting ``current_state`` directly skips the ``OrderCancelled`` event and
+        leaves the order in active tracking: it keeps being polled and listeners
+        never learn it is gone. It is not repairable by the next poll either --
+        ``update_with_order_update`` declines to re-process a state the order
+        already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+        """
+        for tracked in list(self.in_flight_orders.values()):
+            if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            self._order_tracker.process_order_update(
+                OrderUpdate(
+                    trading_pair=tracked.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=tracked.client_order_id,
+                    exchange_order_id=tracked.exchange_order_id,
+                )
+            )
+            return
 
     async def _place_order(
             self,
