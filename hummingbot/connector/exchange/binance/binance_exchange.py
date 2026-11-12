@@ -244,10 +244,13 @@ class BinanceExchange(ExchangePyBase):
                 "orderId": exchange_order_id,
             },
             is_auth_required=True,
+            # Binance answers -2011 with HTTP 400; without this the connector
+            # raises before we can recognise "already gone" as success.
+            return_err=True,
         )
 
         if cancel_result.get("status") == "CANCELED":
-            self._settle_cancelled_order(exchange_order_id)
+            self._settle_cancelled_order(trading_pair, exchange_order_id)
             return exchange_order_id
 
         if cancel_result.get("code") == -2011:
@@ -256,14 +259,14 @@ class BinanceExchange(ExchangePyBase):
             self.logger().debug(
                 f"Order {exchange_order_id} on {trading_pair} is already gone; nothing to cancel."
             )
-            self._settle_cancelled_order(exchange_order_id)
+            self._settle_cancelled_order(trading_pair, exchange_order_id)
             return exchange_order_id
 
         raise IOError(
             f"Can't cancel order {exchange_order_id} on {trading_pair}: {cancel_result}"
         )
 
-    def _settle_cancelled_order(self, exchange_order_id: str) -> None:
+    def _settle_cancelled_order(self, trading_pair: str, exchange_order_id: str) -> None:
         """Mark a tracked order cancelled, through the tracker rather than its field.
 
         Setting ``current_state`` directly skips the ``OrderCancelled`` event and
@@ -271,9 +274,15 @@ class BinanceExchange(ExchangePyBase):
         never learn it is gone. It is not repairable by the next poll either --
         ``update_with_order_update`` declines to re-process a state the order
         already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+
+        The venue id alone is not enough to identify an order: Binance allocates
+        them per symbol, so a cancel on one pair must never settle a tracked order
+        that merely shares the number on another.
         """
         for tracked in list(self.in_flight_orders.values()):
             if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            if tracked.trading_pair != trading_pair:
                 continue
             self._order_tracker.process_order_update(
                 OrderUpdate(
