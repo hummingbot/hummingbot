@@ -118,7 +118,7 @@ class GateIoCancelByExchangeOrderIdTest(unittest.TestCase):
 
         order = InFlightOrder(
             client_order_id="HBOT-1",
-            trading_pair=self._traded_pair(),
+            trading_pair="BTC-USDT",
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             amount=Decimal("1"),
