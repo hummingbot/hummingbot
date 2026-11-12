@@ -9,10 +9,16 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
+import hummingbot.connector  # noqa: F401 -- initialise the package registry first
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import (
     DerivePerpetualDerivative,
 )
+
+# Not imported from derive_perpetual_constants: that module circles through
+# derive_common_utils -> derive_perpetual_web_utils and reads DEFAULT_DOMAIN while it
+# is still initialising, so importing it first raises AttributeError. The path is
+# pinned here instead.
+CANCEL_PATH = "/private/cancel"
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
@@ -45,7 +51,7 @@ class DeriveCancelByExchangeOrderIdTest(unittest.TestCase):
             result = self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "abc-123"))
 
         self.assertEqual("abc-123", result)
-        self.assertEqual(CONSTANTS.CANCEL_ORDER_URL, posted["path_url"])
+        self.assertEqual(CANCEL_PATH, posted["path_url"])
         self.assertEqual("BTC-PERP", posted["data"]["instrument_name"])
         self.assertEqual("abc-123", posted["data"]["order_id"])
         self.assertEqual(12345, posted["data"]["subaccount_id"])
