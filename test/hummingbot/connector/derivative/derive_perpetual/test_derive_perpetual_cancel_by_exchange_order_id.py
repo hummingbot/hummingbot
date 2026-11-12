@@ -9,16 +9,17 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-# Same import order as the connector's own suite: constants, then web_utils, then the
-# derivative. Importing the derivative first leaves the constants module partially
-# initialised (constants -> derive_common_utils -> web_utils reads DEFAULT_DOMAIN).
-import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
-import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils  # noqa: F401
+# Import order matters here: derive_perpetual_constants -> derive_common_utils ->
+# derive_perpetual_web_utils reads CONSTANTS.DEFAULT_DOMAIN while constants is still
+# initialising, so importing the constants module first raises AttributeError (a
+# pre-existing cycle in this connector, unrelated to the change under test). Loading
+# derive_common_utils first breaks it.
+import hummingbot.connector.other.derive_common_utils  # noqa: F401
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import (
     DerivePerpetualDerivative,
 )
 
-CANCEL_PATH = CONSTANTS.CANCEL_ORDER_URL
+CANCEL_PATH = "/private/cancel"
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
