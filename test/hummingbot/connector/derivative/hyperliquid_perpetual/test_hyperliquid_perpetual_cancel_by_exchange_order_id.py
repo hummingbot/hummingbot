@@ -28,7 +28,8 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
     def setUp(self) -> None:
         self.exchange = HyperliquidPerpetualDerivative(
             hyperliquid_perpetual_secret_key="11" * 32,
-            hyperliquid_perpetual_address="0x" + "11" * 20,
+            # address derived from the (dummy) key above -- the connector validates the pair
+            hyperliquid_perpetual_address="0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
             trading_pairs=["BTC-USDT", "ETH-USDT"],
         )
         self.exchange.coin_to_asset["BTC"] = 3
@@ -92,6 +93,9 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
         The spy calls through to the real tracker method, so this fails if the
         connector stops publishing the update.
         """
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"status": "ok", "response": {"data": {"statuses": ["success"]}}}
+
         order = InFlightOrder(
             client_order_id="HBOT-1",
             trading_pair="BTC-USDT",
@@ -127,6 +131,9 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_order_on_another_pair_is_not_settled(self):
         """A venue id is not unique across pairs; only the named order may move."""
+
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"status": "ok", "response": {"data": {"statuses": ["success"]}}}
 
         async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
             return {"status": "ok", "response": {"data": {"statuses": ["success"]}}}

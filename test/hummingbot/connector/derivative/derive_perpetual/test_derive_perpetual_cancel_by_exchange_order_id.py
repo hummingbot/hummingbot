@@ -96,6 +96,9 @@ class DeriveCancelByExchangeOrderIdTest(unittest.TestCase):
         The spy calls through to the real tracker method, so this fails if the
         connector stops publishing the update.
         """
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"result": {"order_status": "cancelled"}}
+
         order = InFlightOrder(
             client_order_id="HBOT-1",
             trading_pair="BTC-USDT",
@@ -131,6 +134,9 @@ class DeriveCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_order_on_another_pair_is_not_settled(self):
         """A venue id is not unique across pairs; only the named order may move."""
+
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"result": {"order_status": "cancelled"}}
 
         async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
             return {"result": {"order_status": "cancelled"}}
