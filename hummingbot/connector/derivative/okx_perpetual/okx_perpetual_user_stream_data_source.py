@@ -164,7 +164,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 await websocket_assistant.send(ping_request)
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        if len(event_message) > 0 and "data" in event_message:
+        if isinstance(event_message, dict) and len(event_message) > 0:
             queue.put_nowait(event_message)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
