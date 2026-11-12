@@ -367,6 +367,44 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
 
         return True
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order by the *venue's* id, without reading ``in_flight_orders``.
+
+        ``cancel`` resolves a client order id through the in-flight tracker, so an
+        order whose owning process is gone cannot be cancelled at all: it rests,
+        holds margin and can still fill. The venue needs only its own id plus the
+        contract it belongs to, all of which survive a restart.
+
+        The V3 unified-account route identifies the order by ``orderId`` alone;
+        the classic futures route also needs symbol, product type and margin coin.
+        """
+        if not exchange_order_id:
+            raise ValueError("cancel_by_exchange_order_id requires an exchange order id")
+
+        if await self._is_unified_account():
+            cancel_result = await self._api_post(
+                path_url=CONSTANTS.CANCEL_ORDER_ENDPOINT,
+                data={"orderId": exchange_order_id},
+                is_auth_required=True,
+            )
+        else:
+            cancel_result = await self._api_post(
+                path_url=CONSTANTS.CLASSIC_CANCEL_ORDER_ENDPOINT,
+                data={
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
+                    "productType": await self.product_type_associated_to_trading_pair(trading_pair),
+                    "marginCoin": self.get_buy_collateral_token(trading_pair),
+                    "orderId": exchange_order_id,
+                },
+                is_auth_required=True,
+            )
+
+        response_code = cancel_result["code"]
+        if response_code != CONSTANTS.RET_CODE_OK:
+            raise IOError(self._formatted_error(response_code, cancel_result["msg"]))
+
+        return exchange_order_id
+
     async def _place_order(
         self,
         order_id: str,
