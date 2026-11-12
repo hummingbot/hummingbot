@@ -166,8 +166,9 @@ class BinanceCancelByExchangeOrderIdTest(unittest.TestCase):
         update = processed[0]
         self.assertEqual(OrderState.CANCELED, update.new_state)
         self.assertEqual("HBOT-1", update.client_order_id)
-        # The update the tracker was handed must actually move the order.
-        self.assertTrue(order.update_with_order_update(update))
+        # The tracker consumes the update synchronously and must have moved the
+        # order to CANCELED -- re-applying it returns False, which is exactly why
+        # the event has to come from the tracker and not from a field assignment.
         self.assertEqual(OrderState.CANCELED, order.current_state)
 
 
