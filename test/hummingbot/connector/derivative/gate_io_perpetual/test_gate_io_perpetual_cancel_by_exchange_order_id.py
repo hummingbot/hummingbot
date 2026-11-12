@@ -137,3 +137,35 @@ class GateIoPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
         self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
         self.assertEqual(OrderState.CANCELED, processed[0].new_state)
         self.assertEqual("HBOT-1", processed[0].client_order_id)
+
+    def test_order_on_another_pair_is_not_settled(self):
+        """A venue id is not unique across pairs; only the named order may move."""
+        async def fake_delete(path_url, is_auth_required=False, limit_id=None, **kwargs):
+            return {"id": "{eid}"}
+
+        order = InFlightOrder(
+            client_order_id="HBOT-2",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=1.0,
+            exchange_order_id="347058646899348430",
+        )
+        self.exchange.in_flight_orders[order.client_order_id] = order
+
+        processed = []
+        with (
+            patch.object(self.exchange, "_api_delete", side_effect=fake_delete),
+            patch.object(
+                self.exchange._order_tracker,
+                "process_order_update",
+                side_effect=lambda update: processed.append(update) or True,
+            ),
+        ):
+            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "347058646899348430"))
+
+        self.assertEqual([], processed, "cancelling on BTC-USDT settled an ETH-USDT order")
+        self.assertIn("HBOT-2", self.exchange.in_flight_orders)
+

@@ -265,10 +265,10 @@ class GateIoExchange(ExchangePyBase):
         )
         # A cancelled order that still reads as live is retried by the next
         # control loop, which cancels it again and logs a failure each time.
-        self._settle_cancelled_order(exchange_order_id)
+        self._settle_cancelled_order(trading_pair, exchange_order_id)
         return exchange_order_id
 
-    def _settle_cancelled_order(self, exchange_order_id: str) -> None:
+    def _settle_cancelled_order(self, trading_pair: str, exchange_order_id: str) -> None:
         """Mark a tracked order cancelled, through the tracker rather than its field.
 
         Setting ``current_state`` directly skips the ``OrderCancelled`` event and
@@ -279,6 +279,10 @@ class GateIoExchange(ExchangePyBase):
         """
         for tracked in list(self.in_flight_orders.values()):
             if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            # Venue ids are not guaranteed unique across pairs; settle only the
+            # order the caller actually named.
+            if tracked.trading_pair != trading_pair:
                 continue
             self._order_tracker.process_order_update(
                 OrderUpdate(
