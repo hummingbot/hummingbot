@@ -175,7 +175,7 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
         actually submitted carried a `cloid` key and no venue id.
         """
         from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth import (
-            HyperliquidAuth,
+            HyperliquidPerpetualAuth,
         )
 
         captured = {}
@@ -184,7 +184,7 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
             captured["action"] = action
             return "0xsig"
 
-        with patch.object(HyperliquidAuth, "sign_l1_action", side_effect=fake_sign):
+        with patch.object(HyperliquidPerpetualAuth, "sign_l1_action", side_effect=fake_sign):
             self.exchange._auth._sign_cancel_params(
                 {"type": "cancel", "cancels": {"asset": 3, "oid": 12345}},
                 "https://api.hyperliquid.xyz",
@@ -196,7 +196,7 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_signing_offers_a_cloid_cancel_too(self):
         from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth import (
-            HyperliquidAuth,
+            HyperliquidPerpetualAuth,
         )
 
         captured = {}
@@ -205,7 +205,7 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
             captured["action"] = action
             return "0xsig"
 
-        with patch.object(HyperliquidAuth, "sign_l1_action", side_effect=fake_sign):
+        with patch.object(HyperliquidPerpetualAuth, "sign_l1_action", side_effect=fake_sign):
             self.exchange._auth._sign_cancel_params(
                 {"type": "cancelByCloid", "cancels": {"asset": 3, "cloid": "0xabc"}},
                 "https://api.hyperliquid.xyz",
