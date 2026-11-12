@@ -9,8 +9,8 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
+import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import (
-    CONSTANTS,
     DerivePerpetualDerivative,
 )
 from hummingbot.core.data_type.common import OrderType, TradeType
