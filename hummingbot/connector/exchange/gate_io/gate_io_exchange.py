@@ -263,21 +263,33 @@ class GateIoExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
         )
-        client_order_id = self._client_order_id_for(exchange_order_id)
-        if client_order_id:
-            # A cancelled order that still reads as live is retried by the next
-            # control loop, which cancels it again and logs a failure each time.
-            tracked = self.in_flight_orders.get(client_order_id)
-            if tracked is not None:
-                tracked.current_state = OrderState.CANCELED
+        # A cancelled order that still reads as live is retried by the next
+        # control loop, which cancels it again and logs a failure each time.
+        self._settle_cancelled_order(exchange_order_id)
         return exchange_order_id
 
-    def _client_order_id_for(self, exchange_order_id: str) -> str:
-        """The tracked order behind a venue id, or "" when this process has none."""
-        for client_order_id, order in list(self.in_flight_orders.items()):
-            if str(getattr(order, "exchange_order_id", "")) == str(exchange_order_id):
-                return client_order_id
-        return ""
+    def _settle_cancelled_order(self, exchange_order_id: str) -> None:
+        """Mark a tracked order cancelled, through the tracker rather than its field.
+
+        Setting ``current_state`` directly skips the ``OrderCancelled`` event and
+        leaves the order in active tracking: it keeps being polled and listeners
+        never learn it is gone. It is not repairable by the next poll either --
+        ``update_with_order_update`` declines to re-process a state the order
+        already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+        """
+        for tracked in list(self.in_flight_orders.values()):
+            if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            self._order_tracker.process_order_update(
+                OrderUpdate(
+                    trading_pair=tracked.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=tracked.client_order_id,
+                    exchange_order_id=tracked.exchange_order_id,
+                )
+            )
+            return
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """

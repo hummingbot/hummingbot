@@ -403,7 +403,31 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
         if response_code != CONSTANTS.RET_CODE_OK:
             raise IOError(self._formatted_error(response_code, cancel_result["msg"]))
 
+        self._settle_cancelled_order(exchange_order_id)
         return exchange_order_id
+
+    def _settle_cancelled_order(self, exchange_order_id: str) -> None:
+        """Mark a tracked order cancelled, through the tracker rather than its field.
+
+        Setting ``current_state`` directly skips the ``OrderCancelled`` event and
+        leaves the order in active tracking: it keeps being polled and listeners
+        never learn it is gone. It is not repairable by the next poll either --
+        ``update_with_order_update`` declines to re-process a state the order
+        already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+        """
+        for tracked in list(self.in_flight_orders.values()):
+            if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            self._order_tracker.process_order_update(
+                OrderUpdate(
+                    trading_pair=tracked.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=tracked.client_order_id,
+                    exchange_order_id=tracked.exchange_order_id,
+                )
+            )
+            return
 
     async def _place_order(
         self,

@@ -11,6 +11,7 @@ venue's own order id, so the connector can clear an orphaned contract without ev
 consulting the tracker.
 """
 import asyncio
+from decimal import Decimal
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -101,6 +102,68 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
                 self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", ""))
 
         posted.assert_not_called()
+
+    def test_tracked_order_is_settled_through_the_tracker(self):
+        """The OrderCancelled event must fire, not just the state field change.
+
+        Setting ``current_state`` directly skips the event and leaves the order in
+        active tracking, so it keeps being polled and no listener learns it is gone.
+        """
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"code": CONSTANTS.RET_CODE_OK, "msg": "success"}
+
+        order = InFlightOrder(
+            client_order_id="HBOT-1",
+            trading_pair="BTC-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=1.0,
+            exchange_order_id="5566778899",
+        )
+        self.exchange.in_flight_orders[order.client_order_id] = order
+
+        processed = []
+        with patch.object(self.exchange, "_api_post", side_effect=fake_post), \
+                patch.object(self.exchange._order_tracker, "process_order_update",
+                             side_effect=lambda update: processed.append(update) or True):
+            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "5566778899"))
+
+        self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
+        self.assertEqual(OrderState.CANCELED, processed[0].new_state)
+        self.assertEqual("HBOT-1", processed[0].client_order_id)
+
+    def test_tracked_order_is_settled_through_the_tracker(self):
+        """The OrderCancelled event must fire, not just the state field change.
+
+        Setting ``current_state`` directly skips the event and leaves the order in
+        active tracking, so it keeps being polled and no listener learns it is gone.
+        """
+        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
+            return {"code": CONSTANTS.RET_CODE_OK, "msg": "success"}
+
+        order = InFlightOrder(
+            client_order_id="HBOT-1",
+            trading_pair="BTC-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=1.0,
+            exchange_order_id="5566778899",
+        )
+        self.exchange.in_flight_orders[order.client_order_id] = order
+
+        processed = []
+        with patch.object(self.exchange, "_api_post", side_effect=fake_post), \
+                patch.object(self.exchange._order_tracker, "process_order_update",
+                             side_effect=lambda update: processed.append(update) or True):
+            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "5566778899"))
+
+        self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
+        self.assertEqual(OrderState.CANCELED, processed[0].new_state)
+        self.assertEqual("HBOT-1", processed[0].client_order_id)
 
 
 if __name__ == "__main__":
