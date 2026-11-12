@@ -36,7 +36,7 @@ class BinanceCancelByExchangeOrderIdTest(unittest.TestCase):
             deleted["path_url"] = path_url
             deleted["params"] = params
             deleted["kwargs"] = kwargs
-            return {{"status": "CANCELED", "orderId": 12345}}
+            return {"status": "CANCELED", "orderId": 12345}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
@@ -57,7 +57,7 @@ class BinanceCancelByExchangeOrderIdTest(unittest.TestCase):
         """-2011 means it is not on the book, which is what a cancel wants."""
 
         async def fake_delete(path_url, params=None, is_auth_required=False, **kwargs):
-            return {{"code": -2011, "msg": "Unknown order sent."}}
+            return {"code": -2011, "msg": "Unknown order sent."}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
@@ -70,7 +70,7 @@ class BinanceCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_venue_rejection_raises_with_the_cause(self):
         async def fake_delete(path_url, params=None, is_auth_required=False, **kwargs):
-            return {{"code": -1102, "msg": "Mandatory parameter 'symbol' was not sent."}}
+            return {"code": -1102, "msg": "Mandatory parameter 'symbol' was not sent."}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",

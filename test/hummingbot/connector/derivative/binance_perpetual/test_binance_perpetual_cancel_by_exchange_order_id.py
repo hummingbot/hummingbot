@@ -39,7 +39,7 @@ class BinancePerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
             deleted["params"] = params
             deleted["limit_id"] = limit_id
             deleted["kwargs"] = kwargs
-            return {{"status": "CANCELED", "orderId": 999}}
+            return {"status": "CANCELED", "orderId": 999}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
@@ -57,7 +57,7 @@ class BinancePerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_unknown_order_counts_as_cancelled(self):
         async def fake_delete(path_url, params=None, is_auth_required=False, limit_id=None, **kwargs):
-            return {{"code": -2011, "msg": "Unknown order sent."}}
+            return {"code": -2011, "msg": "Unknown order sent."}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
@@ -70,7 +70,7 @@ class BinancePerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_venue_rejection_raises_with_the_cause(self):
         async def fake_delete(path_url, params=None, is_auth_required=False, limit_id=None, **kwargs):
-            return {{"code": -1121, "msg": "Invalid symbol."}}
+            return {"code": -1121, "msg": "Invalid symbol."}
 
         with (
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
