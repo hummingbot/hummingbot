@@ -164,7 +164,9 @@ class GateIoPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
                 side_effect=lambda update: processed.append(update) or True,
             ),
         ):
-            self._run(self.exchange.cancel_by_exchange_order_id("BTC-USDT", "347058646899348430"))
+            asyncio.get_event_loop().run_until_complete(
+                self.exchange.cancel_by_exchange_order_id("BTC-USDT", "347058646899348430")
+            )
 
         self.assertEqual([], processed, "cancelling on BTC-USDT settled an ETH-USDT order")
         self.assertIn("HBOT-2", self.exchange.in_flight_orders)
