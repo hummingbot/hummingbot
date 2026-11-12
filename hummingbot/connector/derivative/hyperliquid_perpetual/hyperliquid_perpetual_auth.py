@@ -201,9 +201,21 @@ class HyperliquidPerpetualAuth(AuthBase):
         return payload
 
     def _sign_cancel_params(self, params, base_url, timestamp):
+        # Honour the caller's cancel flavour: ``cancel`` addresses the venue's own
+        # order id (``oid``), ``cancelByCloid`` addresses a client id. Signing every
+        # cancel as ``cancelByCloid`` made an ``oid`` cancel unsignable -- the venue
+        # rejected it and the order stayed live, which is precisely the case this
+        # path exists for (an order whose client id died with its process).
+        action_type = params.get("type", "cancelByCloid")
+        cancel = params["cancels"]
+        required = "oid" if action_type == "cancel" else "cloid"
+        if required not in cancel:
+            raise ValueError(
+                f"Hyperliquid '{action_type}' cancels need '{required}', got {sorted(cancel)}"
+            )
         order_action = {
-            "type": "cancelByCloid",
-            "cancels": [params["cancels"]],
+            "type": action_type,
+            "cancels": [cancel],
         }
         signature = self.sign_l1_action(
             self.wallet,

@@ -167,6 +167,55 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
         self.assertEqual([], processed, "cancelling on BTC-USDT settled an ETH-USDT order")
         self.assertIn("HBOT-2", self.exchange.in_flight_orders)
 
+    def test_signing_keeps_the_venue_id_cancel_flavour(self):
+        """The request must be signed as `cancel` with an `oid`, not `cancelByCloid`.
+
+        Signing rewrites the action before it is sent, so asserting only that
+        `_api_post` received an `oid` would miss the defect entirely: the payload
+        actually submitted carried a `cloid` key and no venue id.
+        """
+        from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth import (
+            HyperliquidAuth,
+        )
+
+        captured = {}
+
+        def fake_sign(wallet, action, vault, ts, is_mainnet):
+            captured["action"] = action
+            return "0xsig"
+
+        with patch.object(HyperliquidAuth, "sign_l1_action", side_effect=fake_sign):
+            self.exchange._auth._sign_cancel_params(
+                {"type": "cancel", "cancels": {"asset": 3, "oid": 12345}},
+                "https://api.hyperliquid.xyz",
+                1,
+            )
+
+        self.assertEqual("cancel", captured["action"]["type"])
+        self.assertEqual([{"asset": 3, "oid": 12345}], captured["action"]["cancels"])
+
+    def test_signing_offers_a_cloid_cancel_too(self):
+        from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth import (
+            HyperliquidAuth,
+        )
+
+        captured = {}
+
+        def fake_sign(wallet, action, vault, ts, is_mainnet):
+            captured["action"] = action
+            return "0xsig"
+
+        with patch.object(HyperliquidAuth, "sign_l1_action", side_effect=fake_sign):
+            self.exchange._auth._sign_cancel_params(
+                {"type": "cancelByCloid", "cancels": {"asset": 3, "cloid": "0xabc"}},
+                "https://api.hyperliquid.xyz",
+                1,
+            )
+
+        self.assertEqual("cancelByCloid", captured["action"]["type"])
+        self.assertEqual([{"asset": 3, "cloid": "0xabc"}], captured["action"]["cancels"])
 
 if __name__ == "__main__":
+    unittest.main()
+
     unittest.main()
