@@ -3,7 +3,7 @@ from bidict import bidict
 from hummingbot.core.api_throttler.data_types import RateLimit
 
 REST_URL = "https://www.okx.com"
-WSS_URL = "wss://ws.okx.com:8443/ws/v5/business"
+WSS_URL = "wss://ws.okx.com/ws/v5/business"
 
 # GET / Candlesticks history (https://www.okx.com/docs-v5/en/?shell#order-book-trading-market-data-get-candlesticks-history)
 # Retrieve history candlestick charts from recent years(It is last 3 months supported for 1s candlestick).
