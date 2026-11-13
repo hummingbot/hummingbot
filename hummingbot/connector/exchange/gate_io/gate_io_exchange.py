@@ -231,6 +231,70 @@ class GateIoExchange(ExchangePyBase):
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, self.current_timestamp
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order addressed by Gate's own order id.
+
+        ``cancel`` takes the client order id and only reaches orders this process
+        placed, because the in-flight tracker is process-local. An order left
+        resting by a crashed, archived or restarted session stays live at the
+        venue with nothing able to reach it. Gate's REST takes the venue id
+        directly: ``DELETE spot/orders/{order_id}``.
+
+        Gate's spot endpoint also requires ``currency_pair``, which is why the
+        pair is not optional here: without it the venue cannot be asked, and a
+        cancel that silently cannot be addressed is worse than a refusal.
+
+        :param trading_pair: the trading pair the order belongs to (required)
+        :param exchange_order_id: the venue-side order id
+        :return: the exchange order id
+        """
+        if not (trading_pair or "").strip():
+            raise ValueError(
+                "Gate spot cancels by venue id need the trading pair: the venue's "
+                f"DELETE requires currency_pair (order {exchange_order_id!r})"
+            )
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(
+            trading_pair=trading_pair
+        )
+        path_url = CONSTANTS.ORDER_DELETE_PATH_URL.format(order_id=exchange_order_id)
+        await self._api_delete(
+            path_url=path_url,
+            params={"currency_pair": exchange_symbol},
+            is_auth_required=True,
+            limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
+        )
+        # A cancelled order that still reads as live is retried by the next
+        # control loop, which cancels it again and logs a failure each time.
+        self._settle_cancelled_order(trading_pair, exchange_order_id)
+        return exchange_order_id
+
+    def _settle_cancelled_order(self, trading_pair: str, exchange_order_id: str) -> None:
+        """Mark a tracked order cancelled, through the tracker rather than its field.
+
+        Setting ``current_state`` directly skips the ``OrderCancelled`` event and
+        leaves the order in active tracking: it keeps being polled and listeners
+        never learn it is gone. It is not repairable by the next poll either --
+        ``update_with_order_update`` declines to re-process a state the order
+        already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+        """
+        for tracked in list(self.in_flight_orders.values()):
+            if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            # Venue ids are not guaranteed unique across pairs; settle only the
+            # order the caller actually named.
+            if tracked.trading_pair != trading_pair:
+                continue
+            self._order_tracker.process_order_update(
+                OrderUpdate(
+                    trading_pair=tracked.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=tracked.client_order_id,
+                    exchange_order_id=tracked.exchange_order_id,
+                )
+            )
+            return
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
         This implementation-specific method is called by _cancel
