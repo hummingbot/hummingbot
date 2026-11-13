@@ -126,3 +126,6 @@ WS_FILL_CHANNEL = "fill"
 WS_USER_ORDERS_CHANNEL = "user_orders"
 WS_FILL_MESSAGE = "fill"
 WS_USER_ORDER_MESSAGE = "user_order"
+
+# Kalshi rejects a post-only order that would cross the book with details "post only cross"
+MAKER_ONLY_REJECTION_MESSAGE = "post only cross"

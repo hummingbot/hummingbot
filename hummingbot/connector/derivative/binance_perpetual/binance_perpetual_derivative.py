@@ -139,6 +139,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                         and "Timestamp for this request" in error_description)
         return is_time_synchronizer_related
 
+    def _is_maker_only_rejection(self, exception: Exception) -> bool:
+        return str(CONSTANTS.MAKER_ONLY_REJECTION_ERROR_CODE) in str(
+            exception
+        ) and CONSTANTS.MAKER_ONLY_REJECTION_MESSAGE in str(exception)
+
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
             status_update_exception

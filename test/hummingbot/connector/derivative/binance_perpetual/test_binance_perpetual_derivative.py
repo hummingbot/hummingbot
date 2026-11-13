@@ -2017,6 +2017,63 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             f"{Decimal('9999')} {self.trading_pair} {Decimal('1010')}.",
         ))
 
+    @aioresponses()
+    async def test_create_limit_maker_order_rejected_for_crossing_the_book_is_a_warning_not_a_network_error(self, req_mock):
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.post(
+            regex_url,
+            status=400,
+            body='{"code":-2010,"msg":"Order would immediately match and take."}',
+        )
+        self._simulate_trading_rules_initialized()
+        failure_logger = EventLogger()
+        self.exchange.add_listener(MarketEvent.OrderFailure, failure_logger)
+
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("10000"),
+            order_type=OrderType.LIMIT_MAKER,
+            position_action=PositionAction.OPEN,
+            price=Decimal("1010"))
+        await asyncio.sleep(0.001)
+
+        # the strategy still learns that the order failed
+        self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
+        self.assertEqual(1, len(failure_logger.event_log))
+        self.assertEqual("OID1", failure_logger.event_log[0].order_id)
+        # ...but the log says what happened, and does not send the user to check the API key
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            f"{self.exchange.name_cap} rejected the BUY LIMIT_MAKER order for {Decimal('9999')} {self.trading_pair} "
+            f"at {Decimal('1010')} because it would have executed immediately. The exchange's maker-only protection "
+            f"worked as intended and no order was placed; adjust the price so the order rests on the book.",
+        ))
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertFalse(any("Check API key" in record.getMessage() for record in self.log_records))
+
+    @aioresponses()
+    async def test_create_limit_maker_order_rejected_for_another_reason_keeps_the_network_error(self, req_mock):
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.post(regex_url, status=400, body='{"code":-2010,"msg":"Account has insufficient balance for requested action."}')
+        self._simulate_trading_rules_initialized()
+
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("10000"),
+            order_type=OrderType.LIMIT_MAKER,
+            position_action=PositionAction.OPEN,
+            price=Decimal("1010"))
+        await asyncio.sleep(0.001)
+
+        self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
+        self.assertTrue(any(record.levelname == "NETWORK" for record in self.log_records))
+
     async def test_create_order_min_order_size_failure(self):
         self._simulate_trading_rules_initialized()
         margin_asset = self.quote_asset
