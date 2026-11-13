@@ -847,6 +847,22 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     async def test_funding_payment_polling_loop_sends_update_event(self, *args, **kwargs):
         pass
 
+    @aioresponses()
+    async def test_update_trading_rules_skips_a_market_listed_after_the_symbol_map_was_built(self, mock_api):
+        # dYdX lists new markets while the bot runs; the symbol map was built at start and does not know
+        # them, and one KeyError used to fail the rules of every pair on every tick (#7492)
+        self.exchange._set_current_timestamp(1000)
+        response = self.trading_rules_request_mock_response
+        known = response["markets"][self.trading_pair]
+        response["markets"]["ELX-USD"] = {**known, "ticker": "ELX-USD", "clobPairId": "999"}
+        mock_api.get(self.trading_rules_url, body=json.dumps(response))
+
+        await self.exchange._update_trading_rules()
+
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertNotIn("ELX-USD", self.exchange.trading_rules)
+        self.assertFalse(any(record.levelname in ("ERROR", "NETWORK") for record in self.log_records))
+
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         return {
             "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
