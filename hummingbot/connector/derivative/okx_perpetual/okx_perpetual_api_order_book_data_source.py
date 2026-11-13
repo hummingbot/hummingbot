@@ -12,7 +12,7 @@ from hummingbot.core.data_type.order_book import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.utils.tracking_nonce import NonceCreator
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSPlainTextRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
@@ -287,7 +287,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             try:
                 await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload="ping")
+                ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(ping_request)
 
     # 5 - Listen for Specific Channels
