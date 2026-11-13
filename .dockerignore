@@ -2,6 +2,7 @@
 /logs
 /build
 /dist
+/.venv
 /.git
 /.github
 .DS_Store

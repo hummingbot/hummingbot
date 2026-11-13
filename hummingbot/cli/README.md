@@ -243,10 +243,10 @@ interactive client's first launch. Every later command must use that same passwo
 
 ## Running in Docker
 
-> **Recommended for automated/agent-driven setup.** The image ships with the conda env and compiled
-> Cython extensions prebuilt, so there's no Miniconda download, `conda env create`, ToS prompt, or
-> multi-minute extension compile — just `make deploy && make link-cli`. Reach for the source install
-> only when you're building or modifying the code.
+> **Recommended for automated/agent-driven setup.** The image ships with the dependency venv and
+> compiled Cython extensions prebuilt, so there's no toolchain download, `uv sync`, or multi-minute
+> extension compile — just `make deploy && make link-cli`. Reach for the source install only when
+> you're building or modifying the code.
 
 `hbot` works the same in Docker as from source — same commands, same flow. By default `make deploy`
 brings up the `hummingbot` container running the classic **interactive client** (`docker attach
@@ -270,7 +270,7 @@ hbot status ; hbot logs -f ; hbot stop
 The wrapper (`bin/hbot-host`) auto-detects where to run: standing inside a compose project whose
 `hummingbot` container is running → `docker exec` into it (the `conf`/`data`/`logs` dirs there are
 bind mounts owned by the container's user, so the host CLI couldn't write them anyway); else a
-`hummingbot` conda env → run there; else a running `hummingbot` container → `docker exec` into it.
+source install's `.venv` → run there; else a running `hummingbot` container → `docker exec` into it.
 So one `hbot <command>` works regardless of how you installed, and `HBOT_PREFER=docker` forces the
 container on machines that have both. (Without the wrapper,
 `docker exec -it hummingbot hbot <command>` does the same thing.)

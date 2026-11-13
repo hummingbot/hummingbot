@@ -23,7 +23,6 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260922"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -40,55 +39,6 @@ def main():
             "templates/*TEMPLATE.yml"
         ],
     }
-    install_requires = [
-        "aiohttp>=3.8.5",
-        "aiomqtt>=2.0.0",
-        "asyncssh>=2.13.2",
-        "aioprocessing>=2.0.1",
-        "aioresponses>=0.7.4",
-        "aiounittest>=1.4.2",
-        "aptos-sdk>=0.8.0",
-        "async-timeout>=4.0.2,<5",
-        "base58>=2.1.1",
-        "bidict>=0.22.1",
-        "bip-utils",
-        "Brotli>=1.2.0",
-        "cachetools>=5.3.1",
-        "cryptography>=41.0.2",
-        "decibel-python-sdk==0.2.1",
-        "eth-account>=0.13.0",
-        "injective-py>=1.13",
-        "msgpack-python",
-        "numba>=0.61.2",
-        "numpy>=2.2.6",
-        "objgraph",
-        "pandas>=2.3.2",
-        "pandas-ta>=0.4.71b",
-        "prompt_toolkit>=3.0.39",
-        "protobuf>=4.23.3",
-        "psutil>=5.9.5",
-        "pydantic>=2",
-        "pyjwt>=2.3.0",
-        "pyperclip>=1.8.2",
-        "requests>=2.31.0",
-        "ruamel.yaml>=0.2.5",
-        "safe-pysha3",
-        "scalecodec",
-        "scipy>=1.11.1",
-        "six>=1.16.0",
-        "solders>=0.19.0",
-        "sqlalchemy>=1.4.49",
-        "tabulate==0.9.0",
-        "TA-Lib>=0.6.4",
-        "tqdm>=4.67.1",
-        "typer>=0.9.0",
-        "ujson>=5.7.0",
-        "urllib3>=1.26.15,<2.0",
-        "web3",
-        "xrpl-py>=4.4.0",
-        "PyYaml>=0.2.5",
-        "lighter-sdk==1.1.2"
-    ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
     extra_compile_args = []
@@ -129,7 +79,6 @@ def main():
         })
 
     if "DEV_MODE" in os.environ:
-        version += ".dev1"
         package_data[""] = [
             "*.pxd", "*.pyx", "*.h"
         ]
@@ -150,18 +99,12 @@ def main():
         ext.extra_link_args = extra_link_args
 
     # --- 4. Pass the modified extensions to setup ---
+    # name/version/description/author/license/requires-python/dependencies live in
+    # pyproject.toml's [project] table now — setup.py only supplies what pyproject.toml
+    # can't express (the Cython build and the fnmatch-filtered package list).
     setup(
-        name="hummingbot",
-        version=version,
-        description="Hummingbot",
-        url="https://github.com/hummingbot/hummingbot",
-        author="Hummingbot Foundation",
-        author_email="dev@hummingbot.org",
-        license="Apache 2.0",
-        python_requires=">=3.10.12",
         packages=packages,
         package_data=package_data,
-        install_requires=install_requires,
         ext_modules=extensions,  # <--- Use the list we modified
         include_dirs=[
             np.get_include()

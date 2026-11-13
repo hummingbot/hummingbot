@@ -40,9 +40,9 @@ if [[ ! -f bin/hummingbot_quickstart.py ]]; then
     exit 1
 fi
 
-# Check if the hummingbot conda environment is activated
-if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
-    echo "Error: 'hummingbot' conda environment is not activated. Please activate it and try again."
+# Check if the project's venv is activated
+if [[ -z "$VIRTUAL_ENV" || "$(cd "$VIRTUAL_ENV/.." && pwd)" != "$(pwd)" ]]; then
+    echo "Error: the project's venv is not activated. Run 'source .venv/bin/activate' and try again."
     exit 1
 fi
 

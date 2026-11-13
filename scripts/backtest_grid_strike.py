@@ -2,9 +2,9 @@
 Backtest grid_strike controller with optional chart output.
 
 Usage:
-    conda run -n hummingbot python scripts/backtest_grid_strike.py
-    conda run -n hummingbot python scripts/backtest_grid_strike.py --days 3 --chart
-    conda run -n hummingbot python scripts/backtest_grid_strike.py --chart --output backtest_grid.html
+    uv run python scripts/backtest_grid_strike.py
+    uv run python scripts/backtest_grid_strike.py --days 3 --chart
+    uv run python scripts/backtest_grid_strike.py --chart --output backtest_grid.html
 """
 import argparse
 import asyncio

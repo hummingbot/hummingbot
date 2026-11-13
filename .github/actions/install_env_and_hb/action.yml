@@ -1,5 +1,5 @@
 name: "Install environment and Hummingbot"
-description: "Installs conda environment, all libraries and compiles Hummingbot"
+description: "Installs the uv-managed venv, all libraries and compiles Hummingbot"
 inputs:
    program-cache-hit:
      required: true
@@ -10,23 +10,25 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # Install python/conda to check if core code has changed
+    # Install python to check if core code has changed
     - uses: actions/setup-python@v4
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       with:
         python-version: 3.x
 
-    # Install pre_commit if code has changed
-    - name: Install pre_commit
+    - name: Install uv
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash
       run: |
-        source $CONDA/etc/profile.d/conda.sh
-        conda install -c conda-forge pre_commit
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    # Install hummingbot env if environment.yml has changed
+    # Install hummingbot env if pyproject.toml/uv.lock have changed, or re-sync a
+    # cached .venv whenever code changed too: uv sync is cheap when the lockfile is
+    # already satisfied, and it repairs a cached venv whose interpreter the runner
+    # no longer has (the cache only stores .venv/~/.cache/uv, not the interpreter).
     - name: Install Hummingbot
-      if: ${{inputs.dependencies-cache-hit}} != 'true'
+      if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash -l {0}
       run: |
         ./install
@@ -38,8 +40,6 @@ runs:
       env:
         WITHOUT_CYTHON_OPTIMIZATIONS: 'true'
       run: |
-        source $CONDA/etc/profile.d/conda.sh
-        conda info --envs
-        conda activate hummingbot
-        conda env export
+        source .venv/bin/activate
+        uv pip list
         ./compile
