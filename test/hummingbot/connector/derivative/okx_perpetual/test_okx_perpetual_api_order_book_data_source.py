@@ -21,6 +21,8 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative impo
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.data_types import WSPlainTextRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 BASE_ASSET = "COINALPHA"
 QUOTE_ASSET = "HBOT"
@@ -1098,3 +1100,19 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
+
+    async def test_process_websocket_messages_sends_plain_text_ping_on_timeout(self):
+        ws_mock = AsyncMock(spec=WSAssistant)
+        ws_mock.send = AsyncMock(side_effect=asyncio.CancelledError)
+
+        with patch(
+            "hummingbot.connector.derivative.okx_perpetual.okx_perpetual_api_order_book_data_source."
+            "PerpetualAPIOrderBookDataSource._process_websocket_messages",
+            side_effect=asyncio.TimeoutError,
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.data_source._process_websocket_messages(websocket_assistant=ws_mock)
+
+        sent_request = ws_mock.send.call_args.args[0]
+        self.assertIsInstance(sent_request, WSPlainTextRequest)
+        self.assertEqual("ping", sent_request.payload)
