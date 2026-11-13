@@ -4,7 +4,7 @@ import re
 import time
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
@@ -124,3 +124,29 @@ class TestGateioSpotCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+    @aioresponses()
+    async def test_get_historical_candles_pages_fit_the_1000_point_limit(self, mock_api):
+        # Like the venue: from/to are inclusive and a request covering more than 1000 candles is rejected with 400
+        step = 3600
+        now = int(time.time()) // step * step
+
+        def callback(url, **kwargs):
+            first, last = int(url.query["from"]), int(url.query["to"])
+            points = (last - first) // step + 1
+            if points > 1000:
+                return CallbackResult(status=400, payload={
+                    "label": "INVALID_PARAM_VALUE",
+                    "message": "Candlestick range too broad. Maximum 1000 data points are allowed per request"})
+            rows = [[str(first + i * step), "2010", "100.5", "101", "99", "100", "20", "true"] for i in range(points)]
+            return CallbackResult(payload=rows)
+
+        mock_api.get(re.compile(f"^{re.escape(self.data_feed.candles_url)}"), callback=callback, repeat=True)
+
+        end_time = now - 10 * step
+        start_time = end_time - 1499 * step
+        candles = await self.data_feed.get_historical_candles(HistoricalCandlesConfig(
+            connector_name="gate_io", trading_pair=self.trading_pair, interval=self.interval,
+            start_time=start_time, end_time=end_time))
+
+        self.assertEqual([start_time + i * step for i in range(1500)], candles["timestamp"].astype(int).tolist())

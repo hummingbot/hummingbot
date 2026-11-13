@@ -23,7 +23,9 @@ INTERVALS = bidict({
     "7d": "7d",
     "30d": "30d",
 })
-MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
+# from and to are both inclusive: a window of 999 intervals is 1000 candles, the most Gate returns per request
+# (a 1000-interval window is rejected with "Candlestick range too broad. Maximum 1000 data points are allowed per request")
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 999
 MAX_CANDLES_AGO = 10_000
 PUBLIC_URL_POINTS_LIMIT_ID = "PublicPoints"
 PUBLIC_ENDPOINT_LIMIT = 200
