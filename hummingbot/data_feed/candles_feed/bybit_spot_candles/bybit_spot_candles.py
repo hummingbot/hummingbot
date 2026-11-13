@@ -80,7 +80,8 @@ class BybitSpotCandles(CandlesBase):
         For API documentation, please refer to:
         https://bybit-exchange.github.io/docs/v5/market/kline
 
-        startTime and endTime must be used at the same time.
+        The window is sent as start and end (ms). The spot endpoint ignores startTime/endTime and returns
+        the latest candles, so older windows could not be fetched.
         """
         params = {
             "category": "spot",
@@ -89,10 +90,10 @@ class BybitSpotCandles(CandlesBase):
             "limit": limit
         }
         if start_time is not None or end_time is not None:
-            params["startTime"] = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
-            params["startTime"] = params["startTime"] * 1000
-            params["endTime"] = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
-            params["endTime"] = params["endTime"] * 1000
+            start = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
+            end = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
+            params["start"] = start * 1000
+            params["end"] = end * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
