@@ -437,7 +437,7 @@ class BtcMarketsExchange(ExchangePyBase):
                                 raise
                             except Exception:
                                 self.logger().exception(
-                                    "Unexpected error requesting order fills for {fillable_order.client_order_id}")
+                                    f"Unexpected error requesting order fills for {fillable_order.client_order_id}")
 
                     if updatable_order is not None:
                         order_update = OrderUpdate(

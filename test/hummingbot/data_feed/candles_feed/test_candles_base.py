@@ -231,6 +231,10 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.assertEqual(len(self.data_feed._candles), 0)
         self.assertEqual(self.data_feed._ws_candle_available.is_set(), False)
 
+    def test_init_with_unsupported_interval_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            type(self.data_feed)(trading_pair=self.trading_pair, interval="unsupported")
+
     def test_ensure_timestamp_in_seconds(self):
         self.assertEqual(self.data_feed.ensure_timestamp_in_seconds(1622505600), 1622505600)
         self.assertEqual(self.data_feed.ensure_timestamp_in_seconds(1622505600000), 1622505600)

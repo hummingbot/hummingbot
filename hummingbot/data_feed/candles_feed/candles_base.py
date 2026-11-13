@@ -71,9 +71,7 @@ class CandlesBase(NetworkBase):
         if interval in self.intervals.keys():
             self.interval = interval
         else:
-            self.logger().exception(
-                f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
-            raise
+            raise ValueError(f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
 
     def attach_connector(self, connector: "ConnectorBase"):
         """
