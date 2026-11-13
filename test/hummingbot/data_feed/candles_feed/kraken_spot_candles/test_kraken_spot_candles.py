@@ -98,19 +98,50 @@ class TestKrakenSpotCandles(TestCandlesBase):
         }
         return data
 
-    @aioresponses()
-    def test_fetch_candles_raises_exception(self, mock_api):
-        regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
-        data_mock = self.get_candles_rest_data_mock()
-        mock_api.get(url=regex_url, body=json.dumps(data_mock))
-        start_time = self._time - self._interval_in_seconds * 100000
-        end_time = self._time
+    def test_get_rest_candles_params_clamps_ancient_start_time(self):
+        """
+        Regression test for https://github.com/hummingbot/hummingbot/issues/8208.
 
-        config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval,
-                                         connector_name=self.data_feed.name, trading_pair=self.trading_pair)
-        with self.assertRaises(ValueError,
-                               msg="Kraken REST API does not support fetching more than 720 candles ago."):
-            self.run_async_with_timeout(self.data_feed.get_historical_candles(config))
+        Previously _get_rest_candles_params raised ValueError when start_time was
+        older than MAX_CANDLES_AGO intervals ago.  The bug surfaced for 5-minute
+        candles when _is_first_candle_not_included_in_rest_request == True caused
+        the base class to subtract one extra interval, pushing candles_ago from
+        720 to 721 and killing the fill loop permanently.
+
+        The fix silently clamps start_time to the oldest supported value instead
+        of raising, so the fill loop can recover and return the most candles
+        available.
+        """
+        interval = "5m"
+        feed_5m = KrakenSpotCandles(trading_pair=self.trading_pair, interval=interval)
+        interval_in_seconds = feed_5m.interval_in_seconds  # 300
+
+        # A start_time that is 721 intervals in the past (one beyond the limit)
+        ancient_start = int(time.time()) - 721 * interval_in_seconds
+        params = feed_5m._get_rest_candles_params(start_time=ancient_start)
+
+        max_lookback = int(time.time()) - CONSTANTS.MAX_CANDLES_AGO * interval_in_seconds
+        # The clamped since must be >= max_lookback (allow 1-second tolerance for test timing)
+        self.assertGreaterEqual(params["since"], max_lookback - 1,
+                                "start_time should be clamped to oldest supported value, not the ancient input")
+        self.assertLess(ancient_start, max_lookback,
+                        "Pre-condition: ancient_start must be older than max_lookback for this test to be meaningful")
+
+    def test_get_rest_candles_params_does_not_alter_recent_start_time(self):
+        """A start_time within the supported window must be passed through unchanged."""
+        interval = "5m"
+        feed_5m = KrakenSpotCandles(trading_pair=self.trading_pair, interval=interval)
+        interval_in_seconds = feed_5m.interval_in_seconds
+
+        # 100 intervals ago — well within the 720-candle window
+        recent_start = int(time.time()) - 100 * interval_in_seconds
+        params = feed_5m._get_rest_candles_params(start_time=recent_start)
+        self.assertEqual(recent_start, params["since"])
+
+    def test_get_rest_candles_params_handles_none_start_time(self):
+        """Passing start_time=None must not raise and must pass None through to 'since'."""
+        params = self.data_feed._get_rest_candles_params(start_time=None)
+        self.assertIsNone(params["since"])
 
     @aioresponses()
     def test_fetch_candles(self, mock_api):
