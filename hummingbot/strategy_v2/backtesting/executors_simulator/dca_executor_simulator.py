@@ -14,6 +14,8 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
     @staticmethod
     def break_even_price_at_index(prices: List[Decimal], amounts: List[Decimal], index: int) -> Decimal:
         total_amount = sum(amounts[:index + 1])
+        if total_amount == 0:
+            return Decimal("0")
         total_quote = sum([amounts[i] * prices[i] for i in range(index + 1)])
         return total_quote / total_amount
 
@@ -122,14 +124,19 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         close_type = None
 
         for i, dca_stage in enumerate(potential_dca_stages):
+            stage_entry_timestamp = dca_stage['entry_timestamp']
+            stage_index = df_filtered.loc[stage_entry_timestamp:].index
+            stage_returns = dca_stage['cumulative_returns'].reindex(stage_index).fillna(0)
+            stage_values = stage_returns.to_numpy() * dca_stage['amount']
+
             if dca_stage['close_type'] is None:
-                df_filtered.loc[entry_timestamp:, f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, 'current_position_average_price'] = dca_stage['break_even_price']
+                df_filtered.loc[stage_index, f'filled_amount_quote_{i}'] = dca_stage['amount']
+                df_filtered.loc[stage_index, f'net_pnl_quote_{i}'] = stage_values
+                df_filtered.loc[stage_index, 'current_position_average_price'] = dca_stage['break_even_price']
             else:
-                df_filtered.loc[entry_timestamp:, f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, 'current_position_average_price'] = dca_stage['break_even_price']
+                df_filtered.loc[stage_index, f'filled_amount_quote_{i}'] = dca_stage['amount']
+                df_filtered.loc[stage_index, f'net_pnl_quote_{i}'] = stage_values
+                df_filtered.loc[stage_index, 'current_position_average_price'] = dca_stage['break_even_price']
                 close_type = dca_stage['close_type']
                 last_timestamp = dca_stage['close_timestamp']
                 break
