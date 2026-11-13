@@ -600,6 +600,213 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(1, len(order.order_fills))
         self.assertIn(trade_update.trade_id, order.order_fills)
 
+    def test_cumulative_fee_paid_uses_provided_rate_source_for_third_token_fee(self):
+        order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("100"),
+        )
+
+        trade_update = TradeUpdate(
+            trade_id="bnb-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token="BNB", amount=Decimal("0.01"))]
+            ),
+            fill_timestamp=1,
+        )
+        order.update_with_trade_update(trade_update)
+
+        class TestRateSource:
+            def __init__(self):
+                self.requested_pair = None
+
+            def get_pair_rate(self, pair):
+                self.requested_pair = pair
+                return Decimal("600")
+
+        rate_source = TestRateSource()
+
+        fee_paid = order.cumulative_fee_paid(
+            token=self.quote_asset,
+            rate_source=rate_source,
+        )
+
+        self.assertEqual(Decimal("6"), fee_paid)
+        self.assertEqual(f"BNB-{self.quote_asset}", rate_source.requested_pair)
+
+    def test_cumulative_fee_paid_throttles_repeated_conversion_error_logs(self):
+        order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("100"),
+        )
+
+        trade_update = TradeUpdate(
+            trade_id="bnb-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token="BNB", amount=Decimal("0.01"))]
+            ),
+            fill_timestamp=1,
+        )
+        order.update_with_trade_update(trade_update)
+
+        class MissingRateSource:
+            def __init__(self):
+                self.call_count = 0
+
+            def get_pair_rate(self, pair):
+                self.call_count += 1
+                return None
+
+        rate_source = MissingRateSource()
+
+        with patch(
+            "hummingbot.core.data_type.in_flight_order.time.monotonic",
+            side_effect=[0.0, 1.0, 31.0],
+        ), patch.object(order.logger(), "exception") as log_exception:
+            order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=rate_source,
+            )
+            order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=rate_source,
+            )
+            order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=rate_source,
+            )
+
+        self.assertEqual(2, log_exception.call_count)
+        self.assertEqual(3, rate_source.call_count)
+
+    def test_cumulative_fee_paid_recovers_as_soon_as_rate_becomes_available(self):
+        order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("100"),
+        )
+
+        trade_update = TradeUpdate(
+            trade_id="bnb-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token="BNB", amount=Decimal("0.01"))]
+            ),
+            fill_timestamp=1,
+        )
+        order.update_with_trade_update(trade_update)
+
+        class RecoveringRateSource:
+            def __init__(self):
+                self.call_count = 0
+
+            def get_pair_rate(self, pair):
+                self.call_count += 1
+                return None if self.call_count == 1 else Decimal("600")
+
+        rate_source = RecoveringRateSource()
+
+        with patch(
+            "hummingbot.core.data_type.in_flight_order.time.monotonic",
+            return_value=0.0,
+        ), patch.object(order.logger(), "exception") as log_exception:
+            first = order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=rate_source,
+            )
+            recovered = order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=rate_source,
+            )
+
+        self.assertEqual(Decimal("0"), first)
+        self.assertEqual(Decimal("6"), recovered)
+        self.assertEqual(2, rate_source.call_count)
+        self.assertEqual(1, log_exception.call_count)
+
+    def test_cumulative_fee_paid_require_complete_does_not_return_partial_total(self):
+        order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("2"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("100"),
+        )
+
+        direct_fee_fill = TradeUpdate(
+            trade_id="direct-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("1"))]
+            ),
+            fill_timestamp=1,
+        )
+        missing_rate_fill = TradeUpdate(
+            trade_id="bnb-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token="BNB", amount=Decimal("0.01"))]
+            ),
+            fill_timestamp=2,
+        )
+        order.update_with_trade_update(direct_fee_fill)
+        order.update_with_trade_update(missing_rate_fill)
+
+        class MissingRateSource:
+            def get_pair_rate(self, pair):
+                return None
+
+        with patch.object(order.logger(), "exception"):
+            fee_paid = order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=MissingRateSource(),
+                require_complete=True,
+            )
+
+        self.assertIsNone(fee_paid)
+
     def test_update_with_trade_update_duplicate_trade_update(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,

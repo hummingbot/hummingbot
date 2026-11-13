@@ -239,13 +239,25 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        self.update_grid_levels()
-        self.update_metrics()
+        fee_snapshots_complete = self.update_grid_levels()
+        fee_metrics_complete = self.update_metrics()
+
         if self.status == RunnableStatus.RUNNING:
-            if self.control_triple_barrier():
+            if fee_metrics_complete:
+                should_close = self.control_triple_barrier()
+            else:
+                should_close = self.control_risk_barriers_without_fee_metrics()
+
+            if should_close:
                 self.cancel_open_orders()
                 self._status = RunnableStatus.SHUTTING_DOWN
                 return
+
+            # Do not create or refresh grid orders while fee-dependent metrics
+            # are incomplete, but do not suppress protective controls above.
+            if not fee_snapshots_complete or not fee_metrics_complete:
+                return
+
             open_orders_to_create = self.get_open_orders_to_create()
             close_orders_to_create = self.get_close_orders_to_create()
             open_order_ids_to_cancel = self.get_open_order_ids_to_cancel()
@@ -262,7 +274,9 @@ class GridExecutor(ExecutorBase):
                     order_id=orders_id_to_cancel
                 )
         elif self.status == RunnableStatus.SHUTTING_DOWN:
-            await self.control_shutdown_process()
+            await self.control_shutdown_process(
+                fee_snapshots_complete=fee_snapshots_complete
+            )
 
     def early_stop(self, keep_position: bool = False):
         """
@@ -294,7 +308,8 @@ class GridExecutor(ExecutorBase):
                         held.append(order_json)
         return held
 
-    def update_grid_levels(self):
+    def update_grid_levels(self) -> bool:
+        fee_snapshots_complete = True
         self.levels_by_state = {state: [] for state in GridLevelStates}
         for level in self.grid_levels:
             level.update_state()
@@ -303,17 +318,26 @@ class GridExecutor(ExecutorBase):
         # Get completed orders and store them in the filled orders list
         for level in completed:
             if level.active_open_order.order.completely_filled_event.is_set() and level.active_close_order.order.completely_filled_event.is_set():
-                open_order = level.active_open_order.order.to_json()
-                close_order = level.active_close_order.order.to_json()
+                open_order = self._get_order_snapshot(level.active_open_order.order)
+                close_order = self._get_order_snapshot(level.active_close_order.order)
+                if open_order is None or close_order is None:
+                    fee_snapshots_complete = False
+                    continue
                 self._filled_orders.append(open_order)
                 self._filled_orders.append(close_order)
                 self.levels_by_state[GridLevelStates.COMPLETE].remove(level)
                 level.reset_level()
                 self.levels_by_state[GridLevelStates.NOT_ACTIVE].append(level)
 
-    async def control_shutdown_process(self):
+        return fee_snapshots_complete
+
+    async def control_shutdown_process(self, fee_snapshots_complete: bool = True):
         """
-        Control the shutdown process of the executor, handling held positions separately
+        Control the shutdown process of the executor, handling held positions separately.
+
+        Incomplete completed-order fee snapshots must not suppress cancellation or
+        exposure-closing work, but they must prevent final executor termination until
+        the accounting snapshot can be persisted completely.
         """
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
@@ -321,14 +345,35 @@ class GridExecutor(ExecutorBase):
 
         if open_orders_completed and close_orders_completed:
             if self.close_type == CloseType.POSITION_HOLD:
-                # Move filled orders to held positions instead of regular filled orders
+                if not fee_snapshots_complete:
+                    await self._sleep(5.0)
+                    return
+
+                # Validate every fee snapshot before mutating held-position state.
+                open_snapshots = []
                 for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
                     if level.active_open_order and level.active_open_order.order:
-                        self._held_position_orders.append(level.active_open_order.order.to_json())
-                    level.reset_level()
+                        snapshot = self._get_order_snapshot(level.active_open_order.order)
+                        if snapshot is None:
+                            await self._sleep(5.0)
+                            return
+                        open_snapshots.append((level, snapshot))
+
+                close_snapshots = []
                 for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
                     if level.active_close_order and level.active_close_order.order:
-                        self._held_position_orders.append(level.active_close_order.order.to_json())
+                        snapshot = self._get_order_snapshot(level.active_close_order.order)
+                        if snapshot is None:
+                            await self._sleep(5.0)
+                            return
+                        close_snapshots.append((level, snapshot))
+
+                for level, snapshot in open_snapshots:
+                    self._held_position_orders.append(snapshot)
+                    level.reset_level()
+
+                for level, snapshot in close_snapshots:
+                    self._held_position_orders.append(snapshot)
                     level.reset_level()
                 if len(self._held_position_orders) == 0:
                     self.close_type = CloseType.EARLY_STOP
@@ -338,17 +383,45 @@ class GridExecutor(ExecutorBase):
                 # Regular shutdown process for non-held positions
                 order_execution_completed = self.position_size_base == Decimal("0")
                 if order_execution_completed:
+                    if not fee_snapshots_complete:
+                        await self._sleep(5.0)
+                        return
+
+                    open_snapshots = []
                     for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
                         if level.active_open_order and level.active_open_order.order:
-                            self._filled_orders.append(level.active_open_order.order.to_json())
-                        level.reset_level()
+                            snapshot = self._get_order_snapshot(level.active_open_order.order)
+                            if snapshot is None:
+                                await self._sleep(5.0)
+                                return
+                            open_snapshots.append((level, snapshot))
+
+                    close_snapshots = []
                     for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
                         if level.active_close_order and level.active_close_order.order:
-                            self._filled_orders.append(level.active_close_order.order.to_json())
-                        level.reset_level()
+                            snapshot = self._get_order_snapshot(level.active_close_order.order)
+                            if snapshot is None:
+                                await self._sleep(5.0)
+                                return
+                            close_snapshots.append((level, snapshot))
+
+                    close_order_snapshot = None
                     if self._close_order and self._close_order.order:
-                        self._filled_orders.append(self._close_order.order.to_json())
+                        close_order_snapshot = self._get_order_snapshot(self._close_order.order)
+                        if close_order_snapshot is None:
+                            await self._sleep(5.0)
+                            return
+
+                    for level, snapshot in open_snapshots:
+                        self._filled_orders.append(snapshot)
+                        level.reset_level()
+                    for level, snapshot in close_snapshots:
+                        self._filled_orders.append(snapshot)
+                        level.reset_level()
+                    if close_order_snapshot is not None:
+                        self._filled_orders.append(close_order_snapshot)
                         self._close_order = None
+
                     self.update_realized_pnl_metrics()
                     self.levels_by_state = {}
                     self.stop()
@@ -402,6 +475,8 @@ class GridExecutor(ExecutorBase):
 
     def adjust_and_place_close_order(self, level: GridLevel):
         order_candidate = self._get_close_order_candidate(level)
+        if order_candidate is None:
+            return
         self.adjust_order_candidates(self.config.connector_name, [order_candidate])
         if order_candidate.amount > 0:
             order_id = self.place_order(
@@ -444,6 +519,53 @@ class GridExecutor(ExecutorBase):
             price=entry_price
         )
 
+    def _get_fee_rate_source(self):
+        rate_source = getattr(self._strategy, "market_data_provider", None)
+        if callable(getattr(rate_source, "get_pair_rate", None)):
+            return rate_source
+        return None
+
+    def _get_order_snapshot(self, order) -> Optional[Dict]:
+        return order.to_json(
+            rate_source=self._get_fee_rate_source(),
+            require_complete_fee=True,
+        )
+
+    def _get_cum_fees_base(self, tracked_order: TrackedOrder) -> Optional[Decimal]:
+        if tracked_order.order:
+            return tracked_order.order.cumulative_fee_paid(
+                token=tracked_order.order.base_asset,
+                rate_source=self._get_fee_rate_source(),
+                require_complete=True,
+            )
+        return Decimal("0")
+
+    def _get_cum_fees_quote(self, tracked_order: TrackedOrder) -> Optional[Decimal]:
+        if tracked_order.order:
+            return tracked_order.order.cumulative_fee_paid(
+                token=tracked_order.order.quote_asset,
+                rate_source=self._get_fee_rate_source(),
+                require_complete=True,
+            )
+        return Decimal("0")
+
+    def _get_deducted_base_fees(self, tracked_order: TrackedOrder) -> Decimal:
+        if not tracked_order.order:
+            return Decimal("0")
+
+        order = tracked_order.order
+        total = Decimal("0")
+        for trade_update in order.order_fills.values():
+            if trade_update.fee_asset == order.base_asset:
+                total += trade_update.fee.fee_amount_in_token(
+                    trading_pair=order.trading_pair,
+                    price=trade_update.fill_price,
+                    order_amount=trade_update.fill_base_amount,
+                    token=order.base_asset,
+                    rate_source=self._get_fee_rate_source(),
+                )
+        return total
+
     def _get_close_order_candidate(self, level: GridLevel):
         take_profit_price = self.get_take_profit_price(level)
         if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
@@ -452,7 +574,8 @@ class GridExecutor(ExecutorBase):
                 1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (
                 1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
-            amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
+            deducted_base_fees = self._get_deducted_base_fees(level.active_open_order)
+            amount = level.active_open_order.executed_amount_base - deducted_base_fees
             self._open_fee_in_base = True
         else:
             amount = level.active_open_order.executed_amount_base
@@ -475,14 +598,16 @@ class GridExecutor(ExecutorBase):
             price=take_profit_price
         )
 
-    def update_metrics(self):
+    def update_metrics(self) -> bool:
         self.mid_price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         self.current_open_quote = self.get_price(self.config.connector_name, self.config.trading_pair,
                                                  price_type=self.open_order_price_type)
         self.current_close_quote = self.get_price(self.config.connector_name, self.config.trading_pair,
                                                   price_type=self.close_order_price_type)
-        self.update_position_metrics()
+        if not self.update_position_metrics():
+            return False
         self.update_realized_pnl_metrics()
+        return True
 
     def get_open_orders_to_create(self):
         """
@@ -565,6 +690,46 @@ class GridExecutor(ExecutorBase):
 
     def _sort_levels_by_proximity(self, levels: List[GridLevel]):
         return sorted(levels, key=lambda level: abs(level.price - self.mid_price))
+
+    def control_risk_barriers_without_fee_metrics(self):
+        """
+        Evaluate protective barriers that remain safe when exact fee conversion
+        is temporarily unavailable.
+
+        Stop loss uses gross price PnL: if gross PnL already breaches the stop,
+        adding non-negative fees can only make the actual net loss worse.
+        Trailing stop is intentionally skipped because it depends on exact net
+        PnL history.
+        """
+        stop_loss = self.config.triple_barrier_config.stop_loss
+        if stop_loss and self.position_break_even_price > Decimal("0"):
+            side_multiplier = 1 if self.config.side == TradeType.BUY else -1
+            gross_pnl_pct = (
+                side_multiplier
+                * (self.mid_price - self.position_break_even_price)
+                / self.position_break_even_price
+            )
+            if gross_pnl_pct <= -stop_loss:
+                self.close_type = CloseType.STOP_LOSS
+                return True
+
+        if self.limit_price_condition():
+            self.close_type = (
+                CloseType.POSITION_HOLD
+                if self.config.keep_position
+                else CloseType.STOP_LOSS
+            )
+            return True
+
+        if self.is_expired:
+            self.close_type = CloseType.TIME_LIMIT
+            return True
+
+        if self.take_profit_condition():
+            self.close_type = CloseType.TAKE_PROFIT
+            return True
+
+        return False
 
     def control_triple_barrier(self):
         """
@@ -736,7 +901,8 @@ class GridExecutor(ExecutorBase):
         :return: None
         """
         await super().on_start()
-        self.update_metrics()
+        if not self.update_metrics():
+            return
         if self.control_triple_barrier():
             self.logger().error(f"Grid is already expired by {self.close_type}.")
 
@@ -826,16 +992,35 @@ class GridExecutor(ExecutorBase):
             self._failed_orders.append(self._close_order.order_id)
             self._close_order = None
 
-    def update_position_metrics(self):
+    def update_position_metrics(self) -> bool:
         """
-        Calculate the unrealized pnl in quote asset
+        Calculate the unrealized pnl in quote asset.
 
-        :return: The unrealized pnl in quote asset.
+        Exposure and price-derived state are refreshed even when fee conversion
+        is temporarily incomplete. The return value indicates whether exact
+        fee-dependent PnL metrics are available.
         """
-        open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[
-            GridLevelStates.CLOSE_ORDER_PLACED]
+        open_filled_levels = (
+            self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]
+            + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
+        )
         side_multiplier = 1 if self.config.side == TradeType.BUY else -1
-        executed_amount_base = Decimal(sum([level.active_open_order.order.amount for level in open_filled_levels]))
+
+        if len(self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]) > 0:
+            self.open_liquidity_placed = sum([
+                level.amount_quote
+                for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]
+                if level.active_open_order
+                and level.active_open_order.executed_amount_base == Decimal("0")
+            ])
+        else:
+            self.open_liquidity_placed = Decimal("0")
+
+        executed_amount_base = Decimal(sum([
+            level.active_open_order.order.amount
+            for level in open_filled_levels
+        ]))
+
         if executed_amount_base == Decimal("0"):
             self.position_size_base = Decimal("0")
             self.position_size_quote = Decimal("0")
@@ -843,25 +1028,59 @@ class GridExecutor(ExecutorBase):
             self.position_pnl_quote = Decimal("0")
             self.position_pnl_pct = Decimal("0")
             self.close_liquidity_placed = Decimal("0")
-        else:
-            self.position_break_even_price = sum(
-                [level.active_open_order.order.price * level.active_open_order.order.amount
-                 for level in open_filled_levels]) / executed_amount_base
-            if self._open_fee_in_base:
-                executed_amount_base -= sum([level.active_open_order.cum_fees_base for level in open_filled_levels])
-            close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal(
-                "0")
-            self.position_size_base = executed_amount_base - close_order_size_base
-            self.position_size_quote = self.position_size_base * self.position_break_even_price
-            self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
-            self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
-            self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal(
-                "0")
-            self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] if level.active_close_order and level.active_close_order.executed_amount_base == Decimal("0")])
-        if len(self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]) > 0:
-            self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] if level.active_open_order and level.active_open_order.executed_amount_base == Decimal("0")])
-        else:
-            self.open_liquidity_placed = Decimal("0")
+            return True
+
+        # Break-even price does not depend on fee conversion and must remain
+        # current so price/time risk controls can still operate.
+        self.position_break_even_price = sum([
+            level.active_open_order.order.price * level.active_open_order.order.amount
+            for level in open_filled_levels
+        ]) / executed_amount_base
+
+        if self._open_fee_in_base:
+            deducted_base_fees = [
+                self._get_deducted_base_fees(level.active_open_order)
+                for level in open_filled_levels
+            ]
+            executed_amount_base -= Decimal(sum(deducted_base_fees))
+
+        close_order_size_base = (
+            self._close_order.executed_amount_base
+            if self._close_order and self._close_order.is_done
+            else Decimal("0")
+        )
+        self.position_size_base = executed_amount_base - close_order_size_base
+        self.position_size_quote = self.position_size_base * self.position_break_even_price
+
+        self.close_liquidity_placed = sum([
+            level.amount_quote
+            for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
+            if level.active_close_order
+            and level.active_close_order.executed_amount_base == Decimal("0")
+        ])
+
+        cumulative_fees_quote = [
+            self._get_cum_fees_quote(level.active_open_order)
+            for level in open_filled_levels
+        ]
+        if any(fee is None for fee in cumulative_fees_quote):
+            return False
+
+        self.position_fees_quote = Decimal(sum(cumulative_fees_quote))
+        self.position_pnl_quote = (
+            side_multiplier
+            * ((self.mid_price - self.position_break_even_price)
+               / self.position_break_even_price)
+            * self.position_size_quote
+            - self.position_fees_quote
+        )
+        self.position_pnl_pct = (
+            self.position_pnl_quote / self.position_size_quote
+            if self.position_size_quote > 0
+            else Decimal("0")
+        )
+
+        return True
 
     def update_realized_pnl_metrics(self):
         """

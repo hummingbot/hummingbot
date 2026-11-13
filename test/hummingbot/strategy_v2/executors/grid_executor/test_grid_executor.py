@@ -1241,6 +1241,338 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(custom_info["open_liquidity_placed"], executor.open_liquidity_placed)
         self.assertEqual(custom_info["close_liquidity_placed"], executor.close_liquidity_placed)
 
+    async def test_position_hold_does_not_finalize_when_fee_snapshot_is_incomplete(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.POSITION_HOLD
+        executor._held_position_orders = []
+        executor._sleep = AsyncMock()
+
+        open_level = MagicMock()
+        open_level.active_open_order.order = MagicMock()
+        close_level = MagicMock()
+        close_level.active_close_order.order = MagicMock()
+
+        executor.levels_by_state = {
+            GridLevelStates.OPEN_ORDER_FILLED: [open_level],
+            GridLevelStates.CLOSE_ORDER_PLACED: [close_level],
+        }
+
+        # The open snapshot succeeds, but the close snapshot cannot yet
+        # convert every fee component. No held-position state may be committed.
+        executor._get_order_snapshot.side_effect = [
+            {"client_order_id": "open-1"},
+            None,
+        ]
+
+        await GridExecutor.control_shutdown_process(executor)
+
+        self.assertEqual([], executor._held_position_orders)
+        open_level.reset_level.assert_not_called()
+        close_level.reset_level.assert_not_called()
+        executor.stop.assert_not_called()
+        executor._sleep.assert_awaited_once_with(5.0)
+
+    async def test_control_task_runs_risk_controls_when_fee_metrics_are_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.RUNNING
+        executor.control_risk_barriers_without_fee_metrics.return_value = True
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_risk_barriers_without_fee_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_not_called()
+        executor.cancel_open_orders.assert_called_once_with()
+        self.assertEqual(RunnableStatus.SHUTTING_DOWN, executor._status)
+        executor.get_open_orders_to_create.assert_not_called()
+
+    async def test_control_task_runs_shutdown_when_fee_metrics_are_incomplete(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.SHUTTING_DOWN
+        executor.control_shutdown_process = AsyncMock()
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_shutdown_process.assert_awaited_once_with(
+            fee_snapshots_complete=True
+        )
+
+    def test_base_exposure_ignores_third_token_fee_for_base_deduction(self):
+        executor = MagicMock()
+        rate_source = MagicMock()
+        executor._get_fee_rate_source.return_value = rate_source
+
+        tracked_order = MagicMock()
+        order = MagicMock()
+        tracked_order.order = order
+        order.base_asset = "ETH"
+        order.trading_pair = "ETH-USDT"
+
+        eth_fee_fill = MagicMock()
+        eth_fee_fill.fee_asset = "ETH"
+        eth_fee_fill.fill_price = Decimal("100")
+        eth_fee_fill.fill_base_amount = Decimal("1")
+        eth_fee_fill.fee.fee_amount_in_token.return_value = Decimal("0.01")
+
+        bnb_fee_fill = MagicMock()
+        bnb_fee_fill.fee_asset = "BNB"
+
+        order.order_fills = {
+            "eth-fee": eth_fee_fill,
+            "bnb-fee": bnb_fee_fill,
+        }
+
+        result = GridExecutor._get_deducted_base_fees(executor, tracked_order)
+
+        self.assertEqual(Decimal("0.01"), result)
+        eth_fee_fill.fee.fee_amount_in_token.assert_called_once()
+        bnb_fee_fill.fee.fee_amount_in_token.assert_not_called()
+
+    def test_position_size_refreshes_when_quote_fee_conversion_is_unavailable(self):
+        executor = MagicMock()
+        executor.config.side = TradeType.BUY
+        executor._open_fee_in_base = True
+        executor._close_order = None
+
+        level = MagicMock()
+        level.active_open_order.order.amount = Decimal("1")
+        level.active_open_order.order.price = Decimal("100")
+
+        executor.levels_by_state = {
+            GridLevelStates.OPEN_ORDER_FILLED: [level],
+            GridLevelStates.CLOSE_ORDER_PLACED: [],
+            GridLevelStates.OPEN_ORDER_PLACED: [],
+        }
+
+        executor._get_deducted_base_fees.return_value = Decimal("0.01")
+        executor._get_cum_fees_quote.return_value = None
+
+        result = GridExecutor.update_position_metrics(executor)
+
+        self.assertFalse(result)
+        self.assertEqual(Decimal("0.99"), executor.position_size_base)
+        self.assertEqual(Decimal("99.00"), executor.position_size_quote)
+
+    def test_incomplete_fee_metrics_still_trigger_provable_stop_loss(self):
+        executor = MagicMock()
+        executor.config.side = TradeType.BUY
+        executor.config.triple_barrier_config.stop_loss = Decimal("0.05")
+        executor.position_break_even_price = Decimal("100")
+        executor.mid_price = Decimal("90")
+
+        result = GridExecutor.control_risk_barriers_without_fee_metrics(executor)
+
+        self.assertTrue(result)
+        self.assertEqual(CloseType.STOP_LOSS, executor.close_type)
+
+    async def test_incomplete_completed_snapshot_does_not_suppress_risk_controls(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.RUNNING
+        executor.control_risk_barriers_without_fee_metrics.return_value = True
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_risk_barriers_without_fee_metrics.assert_called_once_with()
+        executor.cancel_open_orders.assert_called_once_with()
+        self.assertEqual(RunnableStatus.SHUTTING_DOWN, executor._status)
+
+    async def test_incomplete_completed_snapshot_does_not_suppress_shutdown(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = True
+        executor.status = RunnableStatus.SHUTTING_DOWN
+        executor.control_shutdown_process = AsyncMock()
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_shutdown_process.assert_awaited_once_with(
+            fee_snapshots_complete=False
+        )
+
+    async def test_shutdown_does_not_finalize_with_incomplete_completed_snapshot(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.EARLY_STOP
+        executor.position_size_base = Decimal("0")
+        executor._sleep = AsyncMock()
+
+        await GridExecutor.control_shutdown_process(
+            executor,
+            fee_snapshots_complete=False,
+        )
+
+        executor.stop.assert_not_called()
+        executor.control_close_order.assert_not_called()
+        executor._sleep.assert_awaited_once_with(5.0)
+
+    async def test_shutdown_can_close_exposure_with_incomplete_completed_snapshot(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.STOP_LOSS
+        executor.position_size_base = Decimal("1")
+        executor.control_close_order = AsyncMock()
+        executor._sleep = AsyncMock()
+
+        await GridExecutor.control_shutdown_process(
+            executor,
+            fee_snapshots_complete=False,
+        )
+
+        executor.control_close_order.assert_awaited_once_with()
+        executor.stop.assert_not_called()
+
+    async def test_control_task_pauses_grid_activity_when_completed_fee_snapshot_is_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = True
+        executor.status = RunnableStatus.RUNNING
+        executor.control_triple_barrier.return_value = False
+
+        await GridExecutor.control_task(executor)
+
+        executor.update_grid_levels.assert_called_once_with()
+        executor.update_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_called_once_with()
+
+        # Incomplete accounting must not suppress risk controls, but it must
+        # prevent creation or refresh of normal grid activity.
+        executor.get_open_orders_to_create.assert_not_called()
+        executor.get_close_orders_to_create.assert_not_called()
+        executor.get_open_order_ids_to_cancel.assert_not_called()
+        executor.get_close_order_ids_to_cancel.assert_not_called()
+
+    async def test_control_task_stops_when_position_fee_metrics_are_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+
+        await GridExecutor.control_task(executor)
+
+        executor.update_grid_levels.assert_called_once_with()
+        executor.update_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_not_called()
+        executor.get_close_orders_to_create.assert_not_called()
+
+    def test_update_grid_levels_reports_incomplete_fee_snapshot(self):
+        executor = MagicMock()
+        level = MagicMock()
+        level.state = GridLevelStates.COMPLETE
+        level.active_open_order.order.completely_filled_event.is_set.return_value = True
+        level.active_close_order.order.completely_filled_event.is_set.return_value = True
+
+        executor.grid_levels = [level]
+        executor._get_order_snapshot.side_effect = [None, {}]
+
+        result = GridExecutor.update_grid_levels(executor)
+
+        self.assertFalse(result)
+        self.assertEqual(2, executor._get_order_snapshot.call_count)
+        level.reset_level.assert_not_called()
+
+    def test_adjust_and_place_close_order_skips_unavailable_candidate(self):
+        executor = MagicMock()
+        executor._get_close_order_candidate.return_value = None
+
+        GridExecutor.adjust_and_place_close_order(executor, MagicMock())
+
+        executor.adjust_order_candidates.assert_not_called()
+        executor.place_order.assert_not_called()
+
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    def test_fee_conversion_uses_strategy_market_data_provider(self):
+        from hummingbot.core.data_type.in_flight_order import TradeUpdate
+        from hummingbot.strategy_v2.models.executors import TrackedOrder
+
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("9"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005"),
+                ),
+            ),
+        )
+
+        executor = self.get_grid_executor_from_config(config)
+
+        rate_source = MagicMock()
+        rate_source.get_pair_rate.return_value = Decimal("600")
+        executor._strategy.market_data_provider = rate_source
+
+        order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID-BUY-1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=123,
+        )
+
+        trade_update = TradeUpdate(
+            trade_id="BNB-FEE-TRADE",
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID-BUY-1",
+            trading_pair="ETH-USDT",
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[
+                    TokenAmount(token="BNB", amount=Decimal("0.01"))
+                ]
+            ),
+            fill_timestamp=124,
+        )
+
+        self.assertTrue(order.update_with_trade_update(trade_update))
+
+        tracked_order = TrackedOrder(order_id="OID-BUY-1")
+        tracked_order.order = order
+
+        fee_paid = executor._get_cum_fees_quote(tracked_order)
+
+        self.assertEqual(Decimal("6"), fee_paid)
+        rate_source.get_pair_rate.assert_called_once_with("BNB-USDT")
+
     def test_creating_grid_with_unsupported_stop_loss_order(self, ):
         # The barrier order types are validated by the config, so the grid can never be built.
         with self.assertRaises(ValueError):
