@@ -17,6 +17,7 @@ from hummingbot.connector.exchange.bing_x.bing_x_exchange import BingXExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderCancelledEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -496,6 +497,69 @@ class TestBingXExchange(unittest.TestCase):
         available_balances = self.exchange.available_balances
 
         self.assertEqual(Decimal("2000"), available_balances["AURA"])
+
+    @aioresponses()
+    def test_api_request_raises_io_error_on_bingx_error_payload(self, mock_api):
+        # BingX reports API errors with HTTP 200 and a payload without the
+        # "data" key. The connector must surface them as request errors instead
+        # of letting callers crash with KeyError: 'data'.
+        url = web_utils.rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"code": 100001, "msg": "Invalid API key", "debugMsg": ""}
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(IOError) as cm:
+            self.async_run_with_timeout(
+                self.exchange._api_request(path_url=CONSTANTS.ACCOUNTS_PATH_URL))
+        self.assertIn("100001", str(cm.exception))
+        self.assertIn("Invalid API key", str(cm.exception))
+
+    @aioresponses()
+    def test_api_request_returns_raw_error_payload_when_return_err(self, mock_api):
+        # return_err=True opts out of the error check so callers like
+        # _place_cancel can keep inspecting the raw error code themselves.
+        url = web_utils.rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"code": -2011, "msg": "Order does not exist", "debugMsg": ""}
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        result = self.async_run_with_timeout(
+            self.exchange._api_request(
+                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+                method=RESTMethod.POST,
+                return_err=True))
+        self.assertEqual(-2011, result["code"])
+
+    @aioresponses()
+    def test_update_balances_raises_io_error_on_bingx_error_payload(self, mock_api):
+        url = web_utils.rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"code": 100001, "msg": "Invalid API key", "debugMsg": ""}
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.exchange._update_balances())
+
+    @aioresponses()
+    def test_place_order_raises_io_error_on_bingx_error_payload(self, mock_api):
+        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {"code": 100410, "msg": "Order price is invalid", "debugMsg": ""}
+        mock_api.post(regex_url, body=json.dumps(response))
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(
+                self.exchange._place_order(
+                    order_id="OID1",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("100"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("0.05")))
 
     # @aioresponses()
     # def test_update_order_status_when_filled(self, mock_api):
