@@ -584,6 +584,8 @@ class ExecutorOrchestrator:
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
+        if executor.is_closed or executor.status in (RunnableStatus.TERMINATED, RunnableStatus.SHUTTING_DOWN):
+            return
         executor.early_stop(action.keep_position)
 
     def _update_positions_from_done_executors(self):

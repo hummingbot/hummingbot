@@ -1275,3 +1275,27 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(len(result["controller2"]["executors"]), 0)
         self.assertEqual(len(result["controller3"]["executors"]), 0)
         self.assertEqual(len(result["controller3"]["positions"]), 0)
+
+    def test_stop_executor_ignores_already_terminated_or_shutting_down_executor(self):
+        """stop_executor must not re-open a TERMINATED executor into SHUTTING_DOWN (#8528)."""
+        terminated_executor = MagicMock(spec=PositionExecutor)
+        terminated_executor.is_closed = True
+        terminated_executor.status = RunnableStatus.TERMINATED
+        terminated_executor.early_stop = MagicMock(return_value=None)
+        terminated_executor.config = MagicMock(PositionExecutorConfig)
+        terminated_executor.config.id = "exec-terminated"
+
+        shutting_down_executor = MagicMock(spec=PositionExecutor)
+        shutting_down_executor.is_closed = False
+        shutting_down_executor.status = RunnableStatus.SHUTTING_DOWN
+        shutting_down_executor.early_stop = MagicMock(return_value=None)
+        shutting_down_executor.config = MagicMock(PositionExecutorConfig)
+        shutting_down_executor.config.id = "exec-shutting-down"
+
+        self.orchestrator.active_executors["test"] = [terminated_executor, shutting_down_executor]
+
+        self.orchestrator.stop_executor(StopExecutorAction(executor_id="exec-terminated", controller_id="test"))
+        self.orchestrator.stop_executor(StopExecutorAction(executor_id="exec-shutting-down", controller_id="test"))
+
+        terminated_executor.early_stop.assert_not_called()
+        shutting_down_executor.early_stop.assert_not_called()
