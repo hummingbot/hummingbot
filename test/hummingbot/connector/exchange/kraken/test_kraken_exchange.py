@@ -1267,6 +1267,39 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(exception_with_unknown_order))
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(exception_without_unknown_order))
 
+    def test_create_trade_update_with_order_fill_data_casts_fill_timestamp_to_float(self):
+        # Kraken's WS trade-fill payload sends "time" as a string (GitHub #8199); the trade
+        # update must cast it to float so it compares with the floats order-status updates use.
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order_fill = {
+            "trade_id": self.expected_fill_trade_id,
+            "ordertxid": order.exchange_order_id,
+            "postxid": "TKH2SE-M7IF5-CFI7LT",
+            "pair": "XXBTZUSD",
+            "time": "1560516023.070651",
+            "type": "buy",
+            "ordertype": "limit",
+            "price": str(order.price),
+            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+            "vol": str(order.amount),
+        }
+
+        trade_update = self.exchange._create_trade_update_with_order_fill_data(
+            order_fill=order_fill,
+            order=order)
+
+        self.assertIsInstance(trade_update.fill_timestamp, float)
+        self.assertEqual(1560516023.070651, trade_update.fill_timestamp)
+
     @aioresponses()
     async def test_get_last_traded_price_single_pair(self, mock_api):
         # Test for _get_last_traded_price method
