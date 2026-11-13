@@ -26,7 +26,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -540,6 +540,71 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True)
 
         return self._process_cancel_result(order_id, cancel_result)
+
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order by the *venue's* id, without reading ``in_flight_orders``.
+
+        ``cancel`` sends the ``cloid``, which only exists for orders this process
+        placed. An order whose owning process is gone therefore cannot be cancelled
+        at all: it rests, holds margin and can still fill. Hyperliquid identifies an
+        order by its numeric ``oid`` inside the cancel action, and that number
+        survives the process, so the venue can be addressed directly.
+        """
+        if not exchange_order_id:
+            raise ValueError("cancel_by_exchange_order_id requires an exchange order id")
+        try:
+            oid = int(exchange_order_id)
+        except (TypeError, ValueError):
+            raise ValueError(f"Hyperliquid order ids are numeric, got {exchange_order_id!r}")
+
+        coin = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        asset = self.coin_to_asset.get(coin)
+        if asset is None:
+            raise IOError(
+                f"Unknown Hyperliquid asset for {trading_pair} ({coin}); "
+                f"cannot cancel order {exchange_order_id}"
+            )
+
+        cancel_result = await self._api_post(
+            path_url=CONSTANTS.CANCEL_ORDER_URL,
+            data={"type": "cancel", "cancels": {"asset": asset, "oid": oid}},
+            is_auth_required=True)
+        # A rejection raises inside _process_cancel_result; a False here means the
+        # action was accepted but the order did not report success.
+        if not self._process_cancel_result(exchange_order_id, cancel_result):
+            raise IOError(
+                f"Hyperliquid did not confirm cancelling order {exchange_order_id}: {cancel_result}"
+            )
+
+        self._settle_cancelled_order(trading_pair, exchange_order_id)
+        return exchange_order_id
+
+    def _settle_cancelled_order(self, trading_pair: str, exchange_order_id: str) -> None:
+        """Mark a tracked order cancelled, through the tracker rather than its field.
+
+        Setting ``current_state`` directly skips the ``OrderCancelled`` event and
+        leaves the order in active tracking: it keeps being polled and listeners
+        never learn it is gone. It is not repairable by the next poll either --
+        ``update_with_order_update`` declines to re-process a state the order
+        already holds. So publish an ``OrderUpdate`` and let the tracker do it.
+
+        The venue id alone does not identify an order, so the pair must match too.
+        """
+        for tracked in list(self.in_flight_orders.values()):
+            if str(getattr(tracked, "exchange_order_id", "")) != str(exchange_order_id):
+                continue
+            if tracked.trading_pair != trading_pair:
+                continue
+            self._order_tracker.process_order_update(
+                OrderUpdate(
+                    trading_pair=tracked.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=tracked.client_order_id,
+                    exchange_order_id=tracked.exchange_order_id,
+                )
+            )
+            return
 
     def _process_cancel_result(self, order_id: str, cancel_result: Dict[str, Any]) -> bool:
         """
