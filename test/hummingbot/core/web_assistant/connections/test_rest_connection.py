@@ -1,5 +1,6 @@
 import asyncio
 import json
+from unittest.mock import AsyncMock
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 import aiohttp
@@ -10,6 +11,21 @@ from hummingbot.core.web_assistant.connections.rest_connection import RESTConnec
 
 
 class RESTConnectionTest(IsolatedAsyncioWrapperTestCase):
+    async def test_call_preserves_default_redirect_behavior(self):
+        session = AsyncMock()
+        connection = RESTConnection(session)
+        request = RESTRequest(method=RESTMethod.GET, url="https://example.invalid")
+        await connection.call(request)
+        self.assertNotIn("allow_redirects", session.request.call_args.kwargs)
+
+    async def test_call_forwards_explicit_redirect_policy(self):
+        session = AsyncMock()
+        connection = RESTConnection(session)
+        for allow_redirects in (False, True):
+            request = RESTRequest(method=RESTMethod.GET, url="https://example.invalid", allow_redirects=allow_redirects)
+            await connection.call(request)
+            self.assertIs(session.request.call_args.kwargs["allow_redirects"], allow_redirects)
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
