@@ -16,7 +16,7 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative impo
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -1500,6 +1500,15 @@ class OkxPerpetualDerivativeTests(
 
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
+
+    def test_get_position_side_one_way_mode_fractional_size(self):
+        # OKX reports one-way-mode position size as a signed decimal (e.g. contracts), not an integer,
+        # so parsing it with int() crashes the user stream listener loop (see issue #8557).
+        short_position_msg = {"posSide": "net", "pos": "-0.07"}
+        long_position_msg = {"posSide": "net", "pos": "0.07"}
+
+        self.assertEqual(PositionSide.SHORT, OkxPerpetualDerivative.get_position_side(short_position_msg))
+        self.assertEqual(PositionSide.LONG, OkxPerpetualDerivative.get_position_side(long_position_msg))
 
     def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()
