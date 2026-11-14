@@ -1036,6 +1036,16 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             )
         )
 
+    async def test_execute_set_position_mode_does_not_reschedule_itself(self):
+        # Regression test for https://github.com/hummingbot/hummingbot/issues/8482
+        # setting the position mode must not schedule _execute_set_position_mode again, which flooded
+        # the logs with "cannot unpack non-iterable NoneType object" errors
+        with patch("hummingbot.connector.perpetual_derivative_py_base.safe_ensure_future") as safe_ensure_future_mock:
+            await self.exchange._execute_set_position_mode(PositionMode.ONEWAY)
+
+        safe_ensure_future_mock.assert_not_called()
+        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
+
     async def test_set_position_mode_already_set_is_a_no_op(self):
         # dydx_v4 only supports ONEWAY and tracks it locally (there is no exchange endpoint to
         # query it), so a resubmission of the already-set mode must short-circuit instead of
