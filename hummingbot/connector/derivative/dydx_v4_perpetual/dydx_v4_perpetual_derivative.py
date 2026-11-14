@@ -24,7 +24,6 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.utils.tracking_nonce import NonceCreator
@@ -804,10 +803,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         """
         if mode != PositionMode.ONEWAY:
             message = "dydx_v4 only supports the ONEWAY position mode."
-            self.trigger_event(
-                AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode, message),
-            )
             self.logger().debug(
                 f"dydx_v4 encountered a problem switching position mode to "
                 f"{mode} for {trading_pair}"
@@ -815,10 +810,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             )
             return False, message
         else:
-            self.trigger_event(
-                AccountEvent.PositionModeChangeSucceeded,
-                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
-            )
             self.logger().debug(f"dydx_v4 switching position mode to " f"{mode} for {trading_pair} succeeded.")
             return True, ""
 
