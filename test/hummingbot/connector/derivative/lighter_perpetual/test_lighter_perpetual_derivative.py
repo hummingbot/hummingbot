@@ -1303,3 +1303,302 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.exchange._schedule_balance_refresh()
         self.assertIsNot(self.exchange._balance_refresh_task, first_task)
         await self.exchange._balance_refresh_task
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_reconciles_account_trades(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "999888",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(trade_updates))
+        self.assertEqual(order.client_order_id, trade_updates[0].client_order_id)
+        self.assertEqual(Decimal("1"), trade_updates[0].fill_base_amount)
+        self.assertEqual(Decimal("2500"), trade_updates[0].fill_price)
+
+    @aioresponses()
+    async def test_request_order_status_reconciles_fills_for_filled_order(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(mock_api, self._inactive_order_payload(order, "filled"))
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "999888",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        order_update = await self.exchange._request_order_status(order)
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+        # Verify fill arrived and executed amount is non-zero
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertTrue(order.is_filled)
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_paginates_multiple_pages(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        # Page 1: returns 100 trades for another order and next_cursor
+        trades_p1 = {
+            "trades": [
+                {
+                    "trade_id": f"1001_{i}",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": "other_order",
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "7777",
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+                for i in range(100)
+            ],
+            "next_cursor": "cursor_page_2"
+        }
+        # Page 2: returns matching trade for target order
+        trades_p2 = {
+            "trades": [
+                {
+                    "trade_id": "1002",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "2",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780001000,
+                }
+            ],
+            "next_cursor": None
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_p1))
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_p2))
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(trade_updates))
+        self.assertEqual(order.client_order_id, trade_updates[0].client_order_id)
+        self.assertEqual(Decimal("2"), trade_updates[0].fill_base_amount)
+
+    @aioresponses()
+    async def test_request_order_status_reconciles_fills_for_canceled_order(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(mock_api, self._inactive_order_payload(order, "canceled"))
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "999889",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        order_update = await self.exchange._request_order_status(order)
+        self.assertEqual(OrderState.CANCELED, order_update.new_state)
+        # Verify partial fill was recovered before cancel finalized
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+
+    @aioresponses()
+    async def test_update_orders_fills_groups_by_market_shared_pagination(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "2",
+            exchange_order_id="102",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("3"),
+        )
+        order1 = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order2 = self.exchange.in_flight_orders[self.client_order_id_prefix + "2"]
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "1",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order1.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "101",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+                {
+                    "trade_id": "2",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1.5",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order2.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "102",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        await self.exchange._update_orders_fills([order1, order2])
+
+        self.assertEqual(Decimal("1"), order1.executed_amount_base)
+        self.assertEqual(Decimal("1.5"), order2.executed_amount_base)
+
+    @aioresponses()
+    async def test_update_orders_fills_reconciles_filled_status_order_with_missing_trades(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "3",
+            exchange_order_id="103",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "3"]
+        # Simulate order state marked FILLED via websocket but trade fills not yet processed
+        order.current_state = OrderState.FILLED
+        self.assertTrue(order.is_filled)
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "3",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "2",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "103",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        await self.exchange._update_orders_fills([order])
+
+        self.assertEqual(Decimal("2"), order.executed_amount_base)

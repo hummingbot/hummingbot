@@ -270,15 +270,87 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         await self._ensure_account_ready()
         await safe_gather(
             self._update_trade_history(),
-            self._update_orders(),
+            self._update_order_status(),
             self._update_balances(),
             self._update_positions(),
         )
 
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        orders_needing_fills = [
+            order for order in orders
+            if order.amount > Decimal("0") and order.executed_amount_base < order.amount
+        ]
+        if not orders_needing_fills:
+            return
+
+        if self._account_index is None:
+            await self._ensure_account_ready()
+        if self._account_index is None:
+            return
+
+        orders_by_market: Dict[int, List[InFlightOrder]] = {}
+        for order in orders_needing_fills:
+            market = self.market_info_for_trading_pair(order.trading_pair)
+            orders_by_market.setdefault(market.market_id, []).append(order)
+
+        for market_id, market_orders in orders_by_market.items():
+            cursor = None
+            for _ in range(5):
+                try:
+                    params = {
+                        "account_index": self._account_index,
+                        "market_id": market_id,
+                        "sort_by": "timestamp",
+                        "limit": 100,
+                    }
+                    if cursor:
+                        params["cursor"] = cursor
+                    response = await self._api_get(
+                        path_url=CONSTANTS.TRADES_PATH_URL,
+                        params=params,
+                        is_auth_required=True,
+                    )
+                    trades = response.get("trades", [])
+                    for trade in trades:
+                        details = own_trade_details(trade, account_index=self._account_index)
+                        if details is None:
+                            continue
+                        _, client_order_id, exchange_order_id, _ = details
+                        matching_order = next(
+                            (
+                                o for o in market_orders
+                                if o.client_order_id == client_order_id
+                                or (o.exchange_order_id and o.exchange_order_id == exchange_order_id)
+                            ),
+                            None,
+                        )
+                        if matching_order is not None:
+                            trade_update = self._trade_update_from_trade(trade, target_order=matching_order)
+                            if trade_update is not None:
+                                self._order_tracker.process_trade_update(trade_update)
+
+                    if all(o.executed_amount_base >= o.amount for o in market_orders):
+                        break
+
+                    next_cursor = response.get("next_cursor")
+                    if not next_cursor or next_cursor == cursor or len(trades) < 100:
+                        break
+                    cursor = next_cursor
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.logger().warning(
+                        f"Failed to fetch shared trade history for market {market_id}: {e}",
+                        exc_info=e,
+                    )
+                    break
+
     async def _update_order_status(self):
+        await self._update_orders_fills(orders=list(self._order_tracker.all_fillable_orders.values()))
         await self._update_orders()
 
     async def _update_lost_orders_status(self):
+        await self._update_orders_fills(orders=list(self._order_tracker.lost_orders.values()))
         await self._update_lost_orders()
 
     async def _place_order(
@@ -386,25 +458,116 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         if self._markets_by_exchange_symbol == {}:
             await self._update_trading_rules()
 
+        if self._account_index is not None:
+            cursor = None
+            for _ in range(5):
+                try:
+                    params = {
+                        "account_index": self._account_index,
+                        "sort_by": "timestamp",
+                        "limit": 100,
+                    }
+                    if cursor:
+                        params["cursor"] = cursor
+                    response = await self._api_get(
+                        path_url=CONSTANTS.TRADES_PATH_URL,
+                        params=params,
+                        is_auth_required=True,
+                    )
+                    trades = response.get("trades", [])
+                    for trade in trades:
+                        trade_update = self._trade_update_from_trade(trade)
+                        if trade_update is not None:
+                            self._order_tracker.process_trade_update(trade_update)
+                    next_cursor = response.get("next_cursor")
+                    if not next_cursor or next_cursor == cursor or len(trades) < 100:
+                        break
+                    cursor = next_cursor
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.logger().warning(f"Failed to fetch account trade history: {e}", exc_info=e)
+                    break
+
         market_ids = {
             self.market_info_for_trading_pair(order.trading_pair).market_id
             for order in self._order_tracker.all_fillable_orders.values()
         }
         for market_id in market_ids:
-            response = await self._api_get(
-                path_url=CONSTANTS.RECENT_TRADES_PATH_URL,
-                params={
-                    "market_id": market_id,
-                    "limit": 100,
-                },
-            )
-            for trade in response.get("trades", []):
-                trade_update = self._trade_update_from_trade(trade)
-                if trade_update is not None:
-                    self._order_tracker.process_trade_update(trade_update)
+            try:
+                response = await self._api_get(
+                    path_url=CONSTANTS.RECENT_TRADES_PATH_URL,
+                    params={
+                        "market_id": market_id,
+                        "limit": 100,
+                    },
+                )
+                for trade in response.get("trades", []):
+                    trade_update = self._trade_update_from_trade(trade)
+                    if trade_update is not None:
+                        self._order_tracker.process_trade_update(trade_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().debug(f"Failed to fetch recent trades for market {market_id}: {e}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        return []
+        trade_updates = []
+        if self._account_index is None:
+            await self._ensure_account_ready()
+        if self._account_index is None:
+            return trade_updates
+
+        market = self.market_info_for_trading_pair(order.trading_pair)
+        cursor = None
+        current_fill = order.executed_amount_base
+        target_amount = order.amount
+        for _ in range(10):
+            try:
+                params = {
+                    "account_index": self._account_index,
+                    "market_id": market.market_id,
+                    "sort_by": "timestamp",
+                    "limit": 100,
+                }
+                if cursor:
+                    params["cursor"] = cursor
+                response = await self._api_get(
+                    path_url=CONSTANTS.TRADES_PATH_URL,
+                    params=params,
+                    is_auth_required=True,
+                )
+                trades = response.get("trades", [])
+                for trade in trades:
+                    details = own_trade_details(trade, account_index=self._account_index)
+                    if details is None:
+                        continue
+                    trade_type, client_order_id, exchange_order_id, is_maker = details
+                    if (
+                        client_order_id == order.client_order_id
+                        or (order.exchange_order_id and exchange_order_id == order.exchange_order_id)
+                    ):
+                        trade_update = self._trade_update_from_trade(trade, target_order=order)
+                        if trade_update is not None:
+                            trade_updates.append(trade_update)
+                            current_fill += trade_update.fill_base_amount
+
+                if target_amount > Decimal("0") and current_fill >= target_amount:
+                    break
+
+                next_cursor = response.get("next_cursor")
+                if not next_cursor or next_cursor == cursor or len(trades) < 100:
+                    break
+                cursor = next_cursor
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().warning(
+                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {e}",
+                    exc_info=e,
+                )
+                break
+        return trade_updates
 
     @staticmethod
     def _order_misc_updates(order_data: Dict[str, Any], state: OrderState) -> Optional[Dict[str, Any]]:
@@ -435,6 +598,21 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 )
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {tracked_order.client_order_id}")
         new_state = order_state_from_order_data(order_data)
+        if (
+            new_state in (OrderState.FILLED, OrderState.PARTIALLY_FILLED, OrderState.CANCELED)
+            and not tracked_order.is_filled
+        ):
+            try:
+                trade_updates = await self._all_trade_updates_for_order(tracked_order)
+                for trade_update in trade_updates:
+                    self._order_tracker.process_trade_update(trade_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().debug(
+                    f"Error fetching trade fills during order status update for {tracked_order.client_order_id}: {e}"
+                )
+
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=normalize_timestamp_to_seconds(
@@ -804,15 +982,23 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             pos_key = self._perpetual_trading.position_key(position.trading_pair, position.position_side)
             self._perpetual_trading.set_position(pos_key, position)
 
-    def _trade_update_from_trade(self, trade: Dict[str, Any]) -> Optional[TradeUpdate]:
+    def _trade_update_from_trade(
+        self, trade: Dict[str, Any], target_order: Optional[InFlightOrder] = None
+    ) -> Optional[TradeUpdate]:
         details = own_trade_details(trade, account_index=self._account_index)
         if details is None:
             return None
 
         trade_type, client_order_id, exchange_order_id, is_maker = details
-        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
-        if tracked_order is None and exchange_order_id:
-            tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+        tracked_order = target_order
+        if tracked_order is None:
+            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+            if tracked_order is None and exchange_order_id:
+                tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+            if tracked_order is None:
+                tracked_order = self._order_tracker.fetch_order(
+                    client_order_id=client_order_id, exchange_order_id=exchange_order_id
+                )
         if tracked_order is None:
             return None
 
@@ -829,12 +1015,13 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         )
         price = self._safe_decimal(trade["price"])
         size = self._safe_decimal(trade["size"])
+        tx_time = trade.get("transaction_time", trade.get("timestamp"))
         return TradeUpdate(
             trade_id=str(trade["trade_id"]),
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=exchange_order_id,
+            exchange_order_id=exchange_order_id or tracked_order.exchange_order_id,
             trading_pair=tracked_order.trading_pair,
-            fill_timestamp=normalize_timestamp_to_seconds(trade.get("transaction_time")),
+            fill_timestamp=normalize_timestamp_to_seconds(tx_time),
             fill_price=price,
             fill_base_amount=size,
             fill_quote_amount=price * size,
