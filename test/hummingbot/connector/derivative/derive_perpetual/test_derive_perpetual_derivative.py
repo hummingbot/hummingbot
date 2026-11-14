@@ -3532,6 +3532,21 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("2040"), price)
         self.assertEqual(Decimal("1960"), sell_price)
 
+    def test_market_order_reads_the_slim_v3_ticker(self):
+        """v3 sends M (mark) and I (index), not mark_price/index_price."""
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock(return_value={"result": {
+            "instrument_name": "ETH-PERP", "M": "2000", "I": "1999",
+            "minp": "1960", "maxp": "2040",
+        }})
+        with patch.object(DerivePerpetualDerivative, "get_mid_price",
+                          side_effect=ValueError("No order book exists for 'ETH-USDC'.")):
+            price = self.async_run_with_timeout(
+                self.exchange._market_order_price(TradeType.BUY, self.trading_pair)
+            )
+
+        self.assertEqual(Decimal("2040"), price)
+
     def test_market_order_price_stays_inside_the_venue_band(self):
         """A 5% buffer must not become a limit price the venue refuses with 11013."""
         self._simulate_trading_rules_initialized()

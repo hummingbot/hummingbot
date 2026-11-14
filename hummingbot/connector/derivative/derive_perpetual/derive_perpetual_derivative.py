@@ -573,12 +573,17 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # order; the mark price below is the better answer anyway.
             reference = None
         if not self._is_usable_price(reference):
+            # v3 publishes a slim ticker: ``M`` is the mark and ``I`` the index
+            # (``b``/``B``/``a``/``A`` are the touch). The long names are read too,
+            # because a fuller payload uses them.
             reference = next(
                 (
                     price
                     for price in (
                         self._to_decimal(ticker.get("mark_price")),
+                        self._to_decimal(ticker.get("M")),
                         self._to_decimal(ticker.get("index_price")),
+                        self._to_decimal(ticker.get("I")),
                     )
                     if self._is_usable_price(price)
                 ),
