@@ -17,6 +17,11 @@ class PMMSimpleController(MarketMakingControllerBase):
         self.config = config
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
+        if not self.is_valid_price(price) or not self.is_valid_price(amount):
+            self.logger().warning(
+                f"Invalid price ({price}) or amount ({amount}) for level {level_id}. Skipping executor creation."
+            )
+            return None
         trade_type = self.get_trade_type_from_level_id(level_id)
         return PositionExecutorConfig(
             timestamp=self.market_data_provider.time(),

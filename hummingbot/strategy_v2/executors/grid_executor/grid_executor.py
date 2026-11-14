@@ -396,9 +396,12 @@ class GridExecutor(ExecutorBase):
                 side=order_candidate.order_side,
                 position_action=PositionAction.OPEN,
             )
-            level.active_open_order = TrackedOrder(order_id=order_id)
-            self.max_open_creation_timestamp = self._strategy.current_timestamp
-            self.logger().debug(f"Executor ID: {self.config.id} - Placing open order {order_id}")
+            if order_id:
+                level.active_open_order = TrackedOrder(order_id=order_id)
+                self.max_open_creation_timestamp = self._strategy.current_timestamp
+                self.logger().debug(f"Executor ID: {self.config.id} - Placing open order {order_id}")
+            else:
+                self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place open order for level {level.id}")
 
     def adjust_and_place_close_order(self, level: GridLevel):
         order_candidate = self._get_close_order_candidate(level)
@@ -413,8 +416,11 @@ class GridExecutor(ExecutorBase):
                 side=order_candidate.order_side,
                 position_action=PositionAction.CLOSE,
             )
-            level.active_close_order = TrackedOrder(order_id=order_id)
-            self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id}")
+            if order_id:
+                level.active_close_order = TrackedOrder(order_id=order_id)
+                self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id}")
+            else:
+                self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place close order for level {level.id}")
 
     def get_take_profit_price(self, level: GridLevel):
         return level.price * (1 + level.take_profit) if self.config.side == TradeType.BUY else level.price * (1 - level.take_profit)
@@ -657,7 +663,10 @@ class GridExecutor(ExecutorBase):
                 side=self.close_order_side,
                 position_action=PositionAction.CLOSE,
             )
-            self._close_order = TrackedOrder(order_id=order_id)
+            if order_id:
+                self._close_order = TrackedOrder(order_id=order_id)
+            else:
+                self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place market close order with invalid price or amount.")
             self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id}")
         self.close_type = close_type
         self._status = RunnableStatus.SHUTTING_DOWN

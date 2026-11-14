@@ -123,7 +123,9 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
-        executor._order_plan[1].order = self.in_flight_order_maker
+        order_maker = self.in_flight_order_maker
+        order_maker.amount = Decimal("0.4")
+        executor._order_plan[1].order = order_maker
         await executor.control_task()
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-3")
 
@@ -260,3 +262,97 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
         held_ids = {order["client_order_id"] for order in executor._held_position_orders}
         self.assertEqual(held_ids, {"OID-BUY-1"})
+
+    def test_create_order_rejected_placement_does_not_track_none_order_id(self):
+        """When place_order fails or is rejected, _order_plan[timestamp] must remain None so it can be retried."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        timestamp = list(executor._order_plan.keys())[0]
+
+        with patch.object(executor, "place_order", return_value=None):
+            executor.create_order(timestamp)
+
+        self.assertIsNone(executor._order_plan[timestamp])
+
+    @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
+    async def test_refresh_order_rejected_clears_slot_and_retries(self):
+        """When refreshing an order and placement is rejected (e.g. NaN price), slot is cleared to None so it can be retried later."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
+        executor._status = RunnableStatus.RUNNING
+        await executor.control_task()
+        self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
+        executor._order_plan[1].order = self.in_flight_order_maker
+
+        # Simulate rejection during refresh
+        with patch.object(executor, "place_order", return_value=None):
+            executor.evaluate_refresh_orders()
+
+        # Slot must be None, not holding the cancelled order
+        self.assertIsNone(executor._order_plan[1])
+        self.assertEqual(len(executor._refreshed_orders), 1)
+
+        # When price recovers and placement succeeds, evaluate_create_order can retry the slot
+        with patch.object(executor, "place_order", return_value="OID-BUY-RETRY"):
+            executor.evaluate_create_order()
+        self.assertIsNotNone(executor._order_plan[1])
+        self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-RETRY")
+
+    def test_empty_slot_does_not_break_order_callbacks(self):
+        """Empty slots (None) in _order_plan must not raise AttributeError during order callbacks."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        # Simulate slot 1 is None (empty / failed / rejected refresh) and slot 2 has an active order
+        timestamps = list(executor._order_plan.keys())
+        executor._order_plan[timestamps[0]] = None
+        executor._order_plan[timestamps[1]] = TrackedOrder(order_id="OID-BUY-2")
+
+        with patch.object(executor, "get_in_flight_order", return_value=self.in_flight_order_taker):
+            # Must not raise AttributeError when searching across order plan containing None
+            executor.update_tracked_orders_with_order_id("OID-BUY-2")
+            self.assertEqual(executor._order_plan[timestamps[1]].order, self.in_flight_order_taker)
+
+        # Failure event on OID-BUY-2
+        fail_event = MarketOrderFailureEvent(
+            order_id="OID-BUY-2",
+            timestamp=1640780000,
+            order_type=OrderType.MARKET,
+        )
+        executor.process_order_failed_event(0, self.strategy.connectors["binance"], fail_event)
+        self.assertIsNone(executor._order_plan[timestamps[1]])
+        self.assertEqual(len(executor._failed_orders), 1)
+
+    async def test_budget_reached_finishes_twap_when_orders_closed(self):
+        """When total executed budget is met (e.g. from refreshed order fills), TWAP transitions to SHUTTING_DOWN."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
+        executor._status = RunnableStatus.RUNNING
+
+        # Simulate filled order in _refreshed_orders that satisfies the full budget
+        mock_filled = MagicMock(spec=InFlightOrder)
+        mock_filled.is_done = True
+        mock_filled.is_filled = True
+        mock_filled.executed_amount_base = Decimal("1")
+        mock_filled.average_executed_price = Decimal("100")
+        refreshed_tracked = TrackedOrder(order_id="OID-REFRESHED")
+        refreshed_tracked.order = mock_filled
+        executor._refreshed_orders.append(refreshed_tracked)
+
+        # Plan has one empty slot and one closed order
+        timestamps = list(executor._order_plan.keys())
+        executor._order_plan[timestamps[0]] = None
+        executor._order_plan[timestamps[1]] = TrackedOrder(order_id="OID-DONE")
+        executor._order_plan[timestamps[1]].order = mock_filled
+
+        # Budget is 100 quote, which is fully satisfied
+        self.assertGreaterEqual(executor.get_total_executed_amount_quote(), executor.config.total_amount_quote)
+
+        # evaluate_create_order should NOT create new orders once budget is reached
+        with patch.object(executor, "place_order") as mock_place:
+            executor.evaluate_create_order()
+            mock_place.assert_not_called()
+
+        # evaluate_all_orders_completed should transition to SHUTTING_DOWN
+        executor.evaluate_all_orders_completed()
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+
+        # evaluate_all_orders_closed terminates cleanly with COMPLETED
+        await executor.evaluate_all_orders_closed()
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor.close_type, CloseType.COMPLETED)

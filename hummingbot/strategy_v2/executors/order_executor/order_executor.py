@@ -244,6 +244,14 @@ class OrderExecutor(ExecutorBase):
             self.close_type = CloseType.POSITION_HOLD
             self.stop()
             return
+        order_type = self.get_order_type()
+        order_price = self.get_order_price()
+        if order_type.is_limit_type() and not self.is_valid_price(order_price):
+            self.logger().warning(
+                f"Executor ID: {self.config.id} - Cannot place {order_type.name} order with invalid price {order_price}. Skipping."
+            )
+            return
+
         connector = self.connectors[self.config.connector_name]
         if isinstance(connector, GatewayBase):
             # Straight to the connector, because the strategy's buy/sell carries no
@@ -253,7 +261,7 @@ class OrderExecutor(ExecutorBase):
                 is_buy=self.config.side == TradeType.BUY,
                 trading_pair=self.config.trading_pair,
                 amount=remaining,
-                price=self.get_order_price(),
+                price=order_price,
                 slippage_pct=float(self._slippage_pct),
                 max_retries=self._max_retries,
             )
@@ -261,17 +269,18 @@ class OrderExecutor(ExecutorBase):
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
-                order_type=self.get_order_type(),
+                order_type=order_type,
                 amount=remaining,
-                price=self.get_order_price(),
+                price=order_price,
                 side=self.config.side,
                 position_action=self.config.position_action,
             )
-        self._order = TrackedOrder(order_id=order_id)
-        self.logger().debug(
-            f"Executor ID: {self.config.id} - Placing order {order_id} "
-            f"(remaining: {remaining}, filled: {self.executed_amount_base}/{self.config.amount})"
-        )
+        if order_id:
+            self._order = TrackedOrder(order_id=order_id)
+            self.logger().debug(
+                f"Executor ID: {self.config.id} - Placing order {order_id} "
+                f"(remaining: {remaining}, filled: {self.executed_amount_base}/{self.config.amount})"
+            )
 
     def get_order_type(self) -> OrderType:
         """
