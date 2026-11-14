@@ -506,7 +506,9 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         get_price_mock.return_value = Decimal("100")
         await executor.control_task()
         executor.update_grid_levels()
-        self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]), 10)
+        # #8567: max_open_orders (5 by default) bounds the orders live at any
+        # time, so one tick places at most 5 even though the batch size is None.
+        self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]), 5)
         for level in executor.grid_levels:
             level.reset_level()
         # Test when price is within activation bounds
