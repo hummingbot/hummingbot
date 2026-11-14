@@ -20,7 +20,13 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    SellOrderCreatedEvent,
+)
 
 
 class MockSignerClient:
@@ -1303,3 +1309,350 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.exchange._schedule_balance_refresh()
         self.assertIsNot(self.exchange._balance_refresh_task, first_task)
         await self.exchange._balance_refresh_task
+
+    # ── Fill reconciliation over REST ───────────────────────────────────────────
+
+    def _account_trades_url(self):
+        url = web_utils.rest_url(CONSTANTS.TRADES_PATH_URL, self.domain)
+        return re.compile(f"^{re.escape(url)}")
+
+    def _recent_trades_url(self):
+        url = web_utils.rest_url(CONSTANTS.RECENT_TRADES_PATH_URL, self.domain)
+        return re.compile(f"^{re.escape(url)}")
+
+    def _own_fill(self, order: InFlightOrder, trade_id: str, size: str, price: str) -> dict:
+        return {
+            "trade_id": int(trade_id),
+            "trade_id_str": trade_id,
+            "market_id": 1,
+            "size": size,
+            "price": price,
+            "ask_account_id": 999,
+            "bid_account_id": self.ACCOUNT_INDEX,
+            "ask_client_id_str": "555",
+            "bid_client_id_str": order.client_order_id,
+            "ask_id_str": "777",
+            "bid_id_str": str(self.expected_exchange_order_id),
+            "is_maker_ask": True,
+            "transaction_time": 1640780000000000,
+        }
+
+    def _foreign_trade(self, trade_id: str) -> dict:
+        return {
+            "trade_id": int(trade_id),
+            "trade_id_str": trade_id,
+            "market_id": 1,
+            "size": "0.5",
+            "price": "10000",
+            "ask_account_id": 111,
+            "bid_account_id": 222,
+            "ask_client_id_str": "1",
+            "bid_client_id_str": "2",
+            "ask_id_str": "3",
+            "bid_id_str": "4",
+            "is_maker_ask": False,
+            "transaction_time": 1640780000000000,
+        }
+
+    def _track_buy_market_order(self, suffix: str = "1") -> InFlightOrder:
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + suffix,
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        return self.exchange.in_flight_orders[self.client_order_id_prefix + suffix]
+
+    @aioresponses()
+    async def test_update_trade_history_reads_fills_from_account_trades(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        # The public tape has already moved past our fill; only the account endpoint still has it.
+        mock_api.get(self._recent_trades_url(), body=json.dumps({"trades": [self._foreign_trade("10")]}))
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._foreign_trade("10"), self._own_fill(order, "11", "1", "10010")]}),
+        )
+
+        api_get_spy = AsyncMock(wraps=self.exchange._api_get)
+        with patch.object(self.exchange, "_api_get", api_get_spy):
+            await self.exchange._update_trade_history()
+
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(Decimal("10010"), order.average_executed_price)
+        self.assertIn("11", order.order_fills)
+
+        trades_request = self._all_executed_requests(mock_api, self._account_trades_url())[0]
+        params = trades_request.kwargs["params"]
+        self.assertEqual(self.ACCOUNT_INDEX, params["account_index"])
+        self.assertEqual(1, params["market_id"])
+        self.assertEqual("timestamp", params["sort_by"])
+        self.assertEqual(100, params["limit"])
+        api_get_spy.assert_awaited_once()
+        self.assertEqual(CONSTANTS.TRADES_PATH_URL, api_get_spy.call_args.kwargs["path_url"])
+        self.assertTrue(api_get_spy.call_args.kwargs["is_auth_required"])
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_returns_only_that_orders_fills(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order(suffix="1")
+        other_order = self._track_buy_market_order(suffix="2")
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({
+                "trades": [
+                    self._own_fill(order, "21", "0.4", "10000"),
+                    self._own_fill(other_order, "22", "1", "10000"),
+                    self._foreign_trade("23"),
+                    self._own_fill(order, "24", "0.6", "10020"),
+                ]
+            }),
+        )
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual(["21", "24"], [update.trade_id for update in trade_updates])
+        self.assertTrue(all(update.client_order_id == order.client_order_id for update in trade_updates))
+        self.assertEqual(Decimal("0.4"), trade_updates[0].fill_base_amount)
+        self.assertEqual(Decimal("10020") * Decimal("0.6"), trade_updates[1].fill_quote_amount)
+        self.assertTrue(trade_updates[0].is_taker)
+        self.assertEqual(Decimal("0.0004"), trade_updates[0].fee.percent)
+
+    @aioresponses()
+    async def test_filled_order_without_ws_fill_is_completed_with_executed_amount(self, mock_api):
+        # Reproduces the report: Lighter reports the market order as filled, the private
+        # websocket never delivers the fill, and the public tape no longer contains it.
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(self._recent_trades_url(), body=json.dumps({"trades": [self._foreign_trade("30")]}))
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "31", "1", "10005")]}),
+        )
+        self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+        self.exchange._update_balances = AsyncMock()
+        self.exchange._update_positions = AsyncMock()
+
+        await self.exchange._status_polling_loop_fetch_updates()
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
+        await asyncio.sleep(0.1)
+
+        self.assertTrue(order.is_done)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(Decimal("10005"), fill_event.price)
+        self.assertEqual(Decimal("1"), fill_event.amount)
+        completed_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(Decimal("1"), completed_event.base_asset_amount)
+
+    @aioresponses()
+    async def test_fill_landing_after_trade_history_read_is_fetched_with_filled_status(self, mock_api):
+        # The order fills while a polling cycle is in flight: the account trades read in that cycle
+        # comes back without the fill, but the status read already reports the order as filled.
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(self._account_trades_url(), body=json.dumps({"trades": []}))
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "41", "1", "10007")]}),
+        )
+        self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+        self.exchange._update_balances = AsyncMock()
+        self.exchange._update_positions = AsyncMock()
+
+        await self.exchange._status_polling_loop_fetch_updates()
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
+        await asyncio.sleep(0.1)
+
+        self.assertTrue(order.is_done)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(Decimal("10007"), order.average_executed_price)
+        self.assertEqual(2, len(self._all_executed_requests(mock_api, self._account_trades_url())))
+        completed_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(Decimal("1"), completed_event.base_asset_amount)
+
+    @aioresponses()
+    async def test_filled_status_skips_extra_fill_request_when_fills_already_arrived(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "51", "1", "10003")]}),
+            repeat=True,
+        )
+        self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+
+        await self.exchange._update_trade_history()
+        await self.exchange._update_orders()
+        await asyncio.sleep(0.1)
+
+        self.assertTrue(order.is_done)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, self._account_trades_url())))
+
+    @aioresponses()
+    async def test_filled_status_is_still_reported_when_fill_request_fails(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(self._account_trades_url(), status=500)
+        self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+
+        order_update = await self.exchange._request_order_status(tracked_order=order)
+
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+        self.assertTrue(
+            any(
+                record.levelname == "WARNING"
+                and record.getMessage().startswith(f"Failed to fetch fills for order {order.client_order_id}.")
+                for record in self.log_records
+            )
+        )
+
+    def _older_foreign_trade(self, trade_id: str, seconds_before: int) -> dict:
+        trade = self._foreign_trade(trade_id)
+        trade["transaction_time"] = (1640780000 - seconds_before) * 1_000_000
+        return trade
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_pages_back_to_older_fills(self, mock_api):
+        # More than 100 newer trades on the account push the order's fill onto the second page.
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        first_page = [self._foreign_trade(str(1000 + i)) for i in range(100)]
+        mock_api.get(self._account_trades_url(), body=json.dumps({"trades": first_page, "next_cursor": "page-2"}))
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({
+                "trades": [self._own_fill(order, "61", "1", "10004"), self._foreign_trade("62")],
+                "next_cursor": "page-3",
+            }),
+        )
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual(["61"], [update.trade_id for update in trade_updates])
+        requests = self._all_executed_requests(mock_api, self._account_trades_url())
+        self.assertEqual(2, len(requests))
+        self.assertNotIn("cursor", requests[0].kwargs["params"])
+        self.assertEqual("page-2", requests[1].kwargs["params"]["cursor"])
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_stops_at_trades_older_than_the_order(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({
+                "trades": [self._foreign_trade("71"), self._older_foreign_trade("72", seconds_before=3600)],
+                "next_cursor": "page-2",
+            }),
+            repeat=True,
+        )
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual([], trade_updates)
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, self._account_trades_url())))
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_warns_when_page_limit_is_reached(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({
+                "trades": [self._foreign_trade(str(2000 + i)) for i in range(100)],
+                "next_cursor": "more",
+            }),
+            repeat=True,
+        )
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual([], trade_updates)
+        self.assertEqual(
+            self.exchange.ORDER_FILLS_MAX_PAGES,
+            len(self._all_executed_requests(mock_api, self._account_trades_url())),
+        )
+        self.assertTrue(
+            any(
+                record.levelname == "WARNING"
+                and record.getMessage().startswith(f"Stopped looking for fills of order {order.client_order_id}")
+                for record in self.log_records
+            )
+        )
+
+    @aioresponses()
+    async def test_filled_status_requests_fills_filtered_by_order_index(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "81", "1", "10002")]}),
+        )
+        payload = self._inactive_order_payload(order, "filled")
+        payload["orders"][0]["order_index"] = 281475000000123
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(mock_api, payload)
+
+        order_update = await self.exchange._request_order_status(tracked_order=order)
+
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        request = self._all_executed_requests(mock_api, self._account_trades_url())[0]
+        self.assertEqual(281475000000123, request.kwargs["params"]["order_index"])
+
+    @aioresponses()
+    async def test_canceled_order_with_partial_fill_gets_its_fills_before_closing(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "91", "0.4", "10001")]}),
+        )
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(mock_api, self._inactive_order_payload(order, "canceled-too-much-slippage", filled="0.4"))
+
+        order_update = await self.exchange._request_order_status(tracked_order=order)
+
+        self.assertEqual(OrderState.FAILED, order_update.new_state)
+        self.assertEqual(Decimal("0.4"), order.executed_amount_base)
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_keeps_fills_found_before_a_page_fails(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        order = self._track_buy_market_order()
+
+        mock_api.get(
+            self._account_trades_url(),
+            body=json.dumps({"trades": [self._own_fill(order, "95", "0.4", "10000")], "next_cursor": "page-2"}),
+        )
+        mock_api.get(self._account_trades_url(), status=500)
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual(["95"], [update.trade_id for update in trade_updates])
+        self.assertTrue(
+            any(
+                record.levelname == "WARNING"
+                and record.getMessage().startswith(f"Failed to fetch more fills for order {order.client_order_id}.")
+                for record in self.log_records
+            )
+        )
