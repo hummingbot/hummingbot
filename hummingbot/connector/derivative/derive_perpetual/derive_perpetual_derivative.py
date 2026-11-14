@@ -70,6 +70,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
+        # Exchange symbol -> (fetched_at, ticker payload). One payload carries both
+        # the reference price a MARKET order needs and the band the venue will
+        # accept, which is why pricing no longer has to depend on an order book.
+        self._ticker_payload_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._resting_close_warning_logged = False
         self._positions_poll_lock = asyncio.Lock()
         self._position_balance_updates: Dict[str, Decimal] = {}
@@ -83,6 +87,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     def name(self) -> str:
         # Note: domain here refers to the entire exchange name. i.e. derive_perpetual_ or derive_perpetual_testnet
         return self._domain
+
+    #: How long one ticker payload may price an order. Long enough that a burst of
+    #: orders costs one request, short enough to track a fast market.
+    TICKER_CACHE_TTL: float = 30.0
 
     @staticmethod
     def derive_perpetual_order_type(order_type: OrderType) -> str:
@@ -510,6 +518,122 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         except Exception:
             return False
 
+    @staticmethod
+    def _to_decimal(value: Any) -> Optional[Decimal]:
+        try:
+            return Decimal(str(value))
+        except (TypeError, ValueError, ArithmeticError):
+            return None
+
+    async def _ticker_payload(self, exchange_symbol: str) -> Dict[str, Any]:
+        """One instrument's ticker, cached briefly.
+
+        Derive publishes the reference price (``mark_price``) and the band it will
+        accept a limit price inside (``minp`` / ``maxp``) in this single payload, so
+        pricing a MARKET order from it costs one cached request instead of requiring
+        an order-book snapshot that a quiet instrument may never have produced.
+        """
+        cached = self._ticker_payload_cache.get(exchange_symbol)
+        now = time.time()
+        if cached is not None and now - cached[0] < self.TICKER_CACHE_TTL:
+            return cached[1]
+
+        response = await self._api_post(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            data={"instrument_name": exchange_symbol},
+        )
+        payload = response.get("result") if isinstance(response, dict) else None
+        if not isinstance(payload, dict):
+            return {}
+        self._ticker_payload_cache[exchange_symbol] = (now, payload)
+        return payload
+
+    async def _market_order_price(
+        self, trade_type: TradeType, trading_pair: str
+    ) -> Decimal:
+        """The limit price a MARKET order is sent with, band-safe.
+
+        An order book is a nice-to-have here, not a prerequisite: when the tracker
+        has a snapshot its mid is used, otherwise the venue's own mark price is. The
+        result is then clamped into ``[minp, maxp]`` -- the band Derive enforces with
+        ``11013 Invalid limit price`` -- so the slippage buffer can never push the
+        order outside what the venue accepts.
+        """
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        ticker = await self._ticker_payload(exchange_symbol)
+
+        band_low = self._to_decimal(ticker.get("minp"))
+        band_high = self._to_decimal(ticker.get("maxp"))
+
+        reference: Optional[Decimal] = None
+        try:
+            reference = self.get_mid_price(trading_pair)
+        except Exception:
+            # No snapshot for this pair yet. That is not a reason to refuse the
+            # order; the mark price below is the better answer anyway.
+            reference = None
+        if not self._is_usable_price(reference):
+            reference = next(
+                (
+                    price
+                    for price in (
+                        self._to_decimal(ticker.get("mark_price")),
+                        self._to_decimal(ticker.get("index_price")),
+                    )
+                    if self._is_usable_price(price)
+                ),
+                None,
+            )
+        if not self._is_usable_price(reference):
+            raise ValueError(
+                f"No price is available for '{trading_pair}': the order book is empty "
+                f"and the venue returned no mark price for '{exchange_symbol}'."
+            )
+
+        slippage = Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE))
+        price = reference * (Decimal("1") + slippage if trade_type is TradeType.BUY
+                             else Decimal("1") - slippage)
+        if band_low is not None and price < band_low:
+            price = band_low
+        if band_high is not None and price > band_high:
+            price = band_high
+        return self.quantize_order_price(trading_pair, price)
+
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            order_id: str,
+                            trading_pair: str,
+                            amount: Decimal,
+                            order_type: OrderType,
+                            price: Optional[Decimal] = None,
+                            **kwargs):
+        """Price a MARKET order here, where an await is allowed.
+
+        ``buy()`` / ``sell()`` are synchronous, so they could only price a market
+        order from whatever the order book tracker happened to hold -- and raised
+        when it held nothing. Resolving the price one step later means the ticker
+        can be consulted, and a market order no longer fails on an instrument whose
+        book is cold (hummingbot#8564).
+        """
+        if order_type is OrderType.MARKET:
+            try:
+                price = await self._market_order_price(trade_type, trading_pair)
+            except Exception:
+                self.logger().exception(
+                    f"Could not price the MARKET {trade_type.name} for {trading_pair}."
+                )
+                self.stop_tracking_order(order_id)
+                return
+        await super()._create_order(
+            trade_type=trade_type,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs,
+        )
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -684,11 +808,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            # Priced at the bare mid, an IOC market buy cannot cross the spread and simply does
-            # not fill. Cross by the same slippage buffer the spot connector uses.
-            mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * (Decimal("1") + Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
-            price = self.quantize_order_price(trading_pair, market_price)
+            # Priced one step later, in _create_order: a market order must not
+            # depend on an order-book snapshot existing (hummingbot#8564).
+            price = s_decimal_NaN
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -724,9 +846,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * (Decimal("1") - Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
-            price = self.quantize_order_price(trading_pair, market_price)
+            # Priced one step later, in _create_order: a market order must not
+            # depend on an order-book snapshot existing (hummingbot#8564).
+            price = s_decimal_NaN
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,

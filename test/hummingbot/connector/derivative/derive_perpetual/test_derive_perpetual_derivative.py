@@ -20,6 +20,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source import (
     DerivePerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
 from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC, SESSION_KEY_EXPIRY_MARGIN_SEC
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -3482,24 +3483,77 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertIn("the requested 20x was not applied", message)
         self.assertIn(f"The maximum for {self.trading_pair} is 15.15x", message)
 
-    def test_market_orders_are_priced_through_the_mid(self):
+    def _stub_ticker(self, mark, band_low=None, band_high=None):
+        """Answer the single-ticker request the pricing path makes."""
+        payload = {"instrument_name": "ETH-PERP"}
+        if mark is not None:
+            payload["mark_price"] = str(mark)
+        if band_low is not None:
+            payload["minp"] = str(band_low)
+        if band_high is not None:
+            payload["maxp"] = str(band_high)
+        self.exchange._api_post = AsyncMock(return_value={"result": payload})
+
+    def test_market_orders_are_handed_over_unpriced(self):
         """
-        Priced at the bare mid, an IOC market order cannot cross the spread: it is refused with
-        11009 "no liquidity within the limit price". A limit beyond the exchange's price band is
-        accepted and simply fills at the book, so the buffer does not need to stay inside it.
+        ``buy``/``sell`` are synchronous, so they cannot consult anything but the order book --
+        and raised when it held no snapshot. They now hand the market order over unpriced and
+        ``_create_order`` resolves it (hummingbot#8564).
         """
         self._simulate_trading_rules_initialized()
-        with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal("10000")), \
-                patch.object(DerivePerpetualDerivative, "_create_order", new_callable=AsyncMock) as create_order:
-            self.exchange.buy(self.trading_pair, Decimal("1"), OrderType.MARKET)
-            self.exchange.sell(self.trading_pair, Decimal("1"), OrderType.MARKET)
+        with patch.object(DerivePerpetualDerivative, "_create_order",
+                          new_callable=AsyncMock) as create_order:
+            self.exchange.buy(self.trading_pair, Decimal("1"), OrderType.MARKET,
+                              position_action=PositionAction.OPEN)
+            self.exchange.sell(self.trading_pair, Decimal("1"), OrderType.MARKET,
+                               position_action=PositionAction.OPEN)
             self.async_run_with_timeout(asyncio.sleep(0.01))
 
         buy, sell = (call.kwargs for call in create_order.call_args_list)
-        self.assertEqual(Decimal("10500"), buy["price"])
-        self.assertEqual(Decimal("9500"), sell["price"])
+        self.assertTrue(buy["price"].is_nan())
+        self.assertTrue(sell["price"].is_nan())
         self.assertEqual(TradeType.BUY, buy["trade_type"])
         self.assertEqual(TradeType.SELL, sell["trade_type"])
+
+    def test_market_order_is_priced_without_an_order_book(self):
+        """The venue's mark price stands in when the tracker holds no snapshot."""
+        self._simulate_trading_rules_initialized()
+        self._stub_ticker(mark=2000, band_low=1960, band_high=2040)
+        with patch.object(DerivePerpetualDerivative, "get_mid_price",
+                          side_effect=ValueError("No order book exists for 'ETH-USDC'.")):
+            price = self.async_run_with_timeout(
+                self.exchange._market_order_price(TradeType.BUY, self.trading_pair)
+            )
+            sell_price = self.async_run_with_timeout(
+                self.exchange._market_order_price(TradeType.SELL, self.trading_pair)
+            )
+
+        # 2000 * 1.05 = 2100 is outside the band the venue enforces, so it is clamped.
+        self.assertEqual(Decimal("2040"), price)
+        self.assertEqual(Decimal("1960"), sell_price)
+
+    def test_market_order_price_stays_inside_the_venue_band(self):
+        """A 5% buffer must not become a limit price the venue refuses with 11013."""
+        self._simulate_trading_rules_initialized()
+        self._stub_ticker(mark=1900, band_low=1862, band_high=1938)
+        with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal("1900")):
+            price = self.async_run_with_timeout(
+                self.exchange._market_order_price(TradeType.BUY, self.trading_pair)
+            )
+
+        self.assertEqual(Decimal("1938"), price)
+        self.assertLess(price, Decimal("1900") * Decimal("1.05"))
+
+    def test_market_order_without_any_price_is_refused_rather_than_sent_unpriced(self):
+        """No book and no mark is a real answer: say so instead of sending nothing usable."""
+        self._simulate_trading_rules_initialized()
+        self._stub_ticker(mark=None)
+        with patch.object(DerivePerpetualDerivative, "get_mid_price",
+                          side_effect=ValueError("No order book exists for 'ETH-USDC'.")):
+            with self.assertRaises(ValueError):
+                self.async_run_with_timeout(
+                    self.exchange._market_order_price(TradeType.BUY, self.trading_pair)
+                )
 
     def test_instruments_are_fetched_across_every_page(self):
         first, second = {"instrument_name": "A-PERP"}, {"instrument_name": "B-PERP"}
