@@ -180,6 +180,98 @@ class TestGridExecutorBugFixes(IsolatedAsyncioWrapperTestCase, LoggerMixinForTes
         held_ids = {order["client_order_id"] for order in executor._held_position_orders}
         self.assertEqual({"open-1", "close-1"}, held_ids)
 
+    @staticmethod
+    def _grid_config_for_max_open_orders(max_open_orders, max_orders_per_batch):
+        from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
+        from hummingbot.strategy_v2.executors.position_executor.data_types import TripleBarrierConfig
+        return GridExecutorConfig(
+            id="test", timestamp=1234567890, trading_pair="ETH-USDT",
+            connector_name="binance", side=TradeType.BUY,
+            start_price=Decimal("90"), end_price=Decimal("110"),
+            limit_price=Decimal("80"),
+            total_amount_quote=Decimal("100"),
+            min_order_amount_quote=Decimal("10"),
+            min_spread_between_orders=Decimal("0.01"),
+            keep_position=True,
+            order_frequency=1,
+            max_open_orders=max_open_orders,
+            max_orders_per_batch=max_orders_per_batch,
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.02"),
+                stop_loss=Decimal("0.05"),
+                take_profit_order_type=OrderType.LIMIT,
+                stop_loss_order_type=OrderType.MARKET,
+            ),
+        )
+
+    def _executor_with_levels(self, config, n_placed, n_candidates):
+        executor = GridExecutor(self.strategy, config)
+        placed_levels = []
+        for _ in range(n_placed):
+            level = MagicMock()
+            level.active_open_order = MagicMock()
+            placed_levels.append(level)
+        executor.levels_by_state = {state: [] for state in GridLevelStates}
+        executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] = placed_levels
+        candidates = [MagicMock() for _ in range(n_candidates)]
+        return executor, candidates
+
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    @patch.object(GridExecutor, "get_trading_rules")
+    def test_get_open_orders_to_create_respects_max_open_orders(self, trading_rules_mock):
+        """Bug fix for #8567: one tick must place at most max_open_orders - n_open_orders.
+
+        Before the fix the cap was only a 'stop once reached' check evaluated
+        before the batch, so with max_open_orders=2, one order placed and
+        max_orders_per_batch=3 the executor proposed 3 more levels (4 live).
+        """
+        trading_rules_mock.return_value = TradingRule(
+            trading_pair="ETH-USDT", min_order_size=Decimal("0.001"),
+            min_base_amount_increment=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"), min_notional_size=Decimal("10"))
+        config = self._grid_config_for_max_open_orders(max_open_orders=2, max_orders_per_batch=3)
+        executor, candidates = self._executor_with_levels(config, n_placed=1, n_candidates=10)
+        with patch.object(GridExecutor, "_filter_levels_by_activation_bounds",
+                          return_value=candidates), \
+                patch.object(GridExecutor, "_sort_levels_by_proximity",
+                             return_value=candidates):
+            result = executor.get_open_orders_to_create()
+        self.assertEqual(len(result), 1)
+
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    @patch.object(GridExecutor, "get_trading_rules")
+    def test_get_open_orders_to_create_default_batch_capped_by_max_open_orders(self, trading_rules_mock):
+        """With the default max_orders_per_batch=None, the batch is capped by max_open_orders."""
+        trading_rules_mock.return_value = TradingRule(
+            trading_pair="ETH-USDT", min_order_size=Decimal("0.001"),
+            min_base_amount_increment=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"), min_notional_size=Decimal("10"))
+        config = self._grid_config_for_max_open_orders(max_open_orders=5, max_orders_per_batch=None)
+        executor, candidates = self._executor_with_levels(config, n_placed=0, n_candidates=10)
+        with patch.object(GridExecutor, "_filter_levels_by_activation_bounds",
+                          return_value=candidates), \
+                patch.object(GridExecutor, "_sort_levels_by_proximity",
+                             return_value=candidates):
+            result = executor.get_open_orders_to_create()
+        self.assertEqual(len(result), 5)
+
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    @patch.object(GridExecutor, "get_trading_rules")
+    def test_get_open_orders_to_create_batch_limit_still_applies(self, trading_rules_mock):
+        """The per-batch limit still binds when it is smaller than the remaining headroom."""
+        trading_rules_mock.return_value = TradingRule(
+            trading_pair="ETH-USDT", min_order_size=Decimal("0.001"),
+            min_base_amount_increment=Decimal("0.001"),
+            min_price_increment=Decimal("0.01"), min_notional_size=Decimal("10"))
+        config = self._grid_config_for_max_open_orders(max_open_orders=5, max_orders_per_batch=2)
+        executor, candidates = self._executor_with_levels(config, n_placed=1, n_candidates=10)
+        with patch.object(GridExecutor, "_filter_levels_by_activation_bounds",
+                          return_value=candidates), \
+                patch.object(GridExecutor, "_sort_levels_by_proximity",
+                             return_value=candidates):
+            result = executor.get_open_orders_to_create()
+        self.assertEqual(len(result), 2)
+
 
 class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self) -> None:
