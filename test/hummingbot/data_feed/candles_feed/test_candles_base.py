@@ -13,6 +13,9 @@ import pandas as pd
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.data_feed.candles_feed.binance_spot_candles.binance_spot_candles import (
+    BinanceSpotCandles,
+)
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 
 
@@ -544,3 +547,25 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         with patch.object(type(self.data_feed), 'ready', new_callable=lambda: property(mock_ready)):
             with patch.object(self.data_feed, 'check_candles_sorted_and_equidistant'):
                 await asyncio.wait_for(self.data_feed.fill_historical_candles(), timeout=5)
+
+
+class CandlesBaseUnsupportedIntervalTest(IsolatedAsyncioWrapperTestCase):
+    """An interval the feed does not serve is refused by name.
+
+    ``CandlesBase.__init__`` used to log the problem and then ``raise`` with no
+    active exception, so every caller saw ``RuntimeError: No active exception to
+    re-raise`` — a message that names neither the interval nor the alternatives.
+    """
+
+    def test_an_unsupported_interval_names_the_interval_and_the_options(self):
+        with self.assertRaises(ValueError) as ctx:
+            BinanceSpotCandles(trading_pair="BTC-USDT", interval="7s", max_records=10)
+
+        message = str(ctx.exception)
+        self.assertIn("7s", message)
+        self.assertIn("1m", message)
+        self.assertIn("BinanceSpotCandles", message)
+
+    def test_a_supported_interval_still_constructs(self):
+        feed = BinanceSpotCandles(trading_pair="BTC-USDT", interval="1m", max_records=10)
+        self.assertEqual("1m", feed.interval)

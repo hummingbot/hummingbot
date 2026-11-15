@@ -71,9 +71,15 @@ class CandlesBase(NetworkBase):
         if interval in self.intervals.keys():
             self.interval = interval
         else:
-            self.logger().exception(
-                f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
-            raise
+            # A bare ``raise`` here re-raised nothing: there is no active
+            # exception in this branch, so it surfaced as
+            # ``RuntimeError: No active exception to re-raise`` and buried the
+            # one fact the caller needs — which interval was refused, and which
+            # ones the feed does serve.
+            raise ValueError(
+                f"Interval {interval} is not supported for {type(self).__name__}. "
+                f"Available intervals: {list(self.intervals.keys())}"
+            )
 
     def attach_connector(self, connector: "ConnectorBase"):
         """
