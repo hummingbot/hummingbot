@@ -59,6 +59,7 @@ def main():
         "eth-account>=0.13.0",
         "injective-py>=1.13",
         "msgpack-python",
+        "neutronx-sdk==0.1.1",
         "numba>=0.61.2",
         "numpy>=2.2.6",
         "objgraph",

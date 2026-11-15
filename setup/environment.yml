@@ -72,3 +72,4 @@ dependencies:
     - aptos-sdk>=0.8.0
     - solders>=0.19.0
     - lighter-sdk==1.1.2
+    - neutronx-sdk==0.1.1
