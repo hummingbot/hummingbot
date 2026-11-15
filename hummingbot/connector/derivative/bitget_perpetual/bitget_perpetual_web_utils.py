@@ -1,5 +1,4 @@
 from typing import Callable, Optional
-from urllib.parse import urljoin
 
 from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -12,16 +11,29 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 def public_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
-    Creates a full URL for provided public websocket endpoint
+    Creates the full URL of the public websocket
+
+    :param domain: a key of CONSTANTS.WSS_URLS; an unknown domain raises KeyError
     """
-    return _create_ws_url(CONSTANTS.WSS_PUBLIC_ENDPOINT, domain)
+    return CONSTANTS.WSS_URLS[domain] + CONSTANTS.WSS_PUBLIC_ENDPOINT
 
 
 def private_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
-    Creates a full URL for provided private websocket endpoint
+    Creates the full URL of the private websocket of a Unified Trading Account
+
+    :param domain: a key of CONSTANTS.WSS_URLS; an unknown domain raises KeyError
     """
-    return _create_ws_url(CONSTANTS.WSS_PRIVATE_ENDPOINT, domain)
+    return CONSTANTS.WSS_URLS[domain] + CONSTANTS.WSS_PRIVATE_ENDPOINT
+
+
+def classic_private_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    """
+    Creates the full URL of the private websocket of a Classic account
+
+    :param domain: a key of CONSTANTS.WSS_URLS; an unknown domain raises KeyError
+    """
+    return CONSTANTS.WSS_URLS[domain] + CONSTANTS.CLASSIC_WSS_PRIVATE_ENDPOINT
 
 
 def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -29,10 +41,10 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     Creates a full URL for provided public REST endpoint
 
     :param path_url: a public REST endpoint
-    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: a key of CONSTANTS.REST_URLS; an unknown domain raises KeyError
     :return: the full URL to the endpoint
     """
-    return _create_rest_url(path_url, domain)
+    return CONSTANTS.REST_URLS[domain] + path_url
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -40,32 +52,10 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     Creates a full URL for provided private REST endpoint
 
     :param path_url: a private REST endpoint
-    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: a key of CONSTANTS.REST_URLS; an unknown domain raises KeyError
     :return: the full URL to the endpoint
     """
-    return _create_rest_url(path_url, domain)
-
-
-def _create_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    """
-    Creates a full URL for provided REST endpoint
-
-    :param path_url: a REST endpoint
-    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
-    :return: the full URL to the endpoint
-    """
-    return urljoin(f"https://{CONSTANTS.REST_SUBDOMAIN}.{domain}", path_url)
-
-
-def _create_ws_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    """
-    Creates a full URL for provided websocket endpoint
-
-    :param path_url: a websocket endpoint
-    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
-    :return: the full URL to the endpoint
-    """
-    return urljoin(f"wss://{CONSTANTS.WSS_SUBDOMAIN}.{domain}", path_url)
+    return public_rest_url(path_url=path_url, domain=domain)
 
 
 def build_api_factory(
@@ -121,11 +111,11 @@ async def get_current_server_time(
     domain: str = CONSTANTS.DEFAULT_DOMAIN
 ) -> float:
     """
-    Get the current server time in seconds.
+    Get the current server time in milliseconds.
 
     :param throttler: The throttler to use for the request.
     :param domain: The domain to use for the request.
-    :return: The current server time in seconds.
+    :return: The current server time in milliseconds.
     """
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)

@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 from decimal import Decimal
@@ -47,6 +48,11 @@ class FoxbitUtilTestCases(unittest.TestCase):
         _msg = '[{"Key":"field0","Value":"Google"},{"Key":"field2","Value":null},{"Key":"field3","Value":"São Paulo"},{"Key":"field4","Value":false},{"Key":"field5","Value":"SAO PAULO"},{"Key":"field6","Value":"00000001"},{"Key":"field7","Value":true}]'
         _retValue = utils.ws_data_to_dict(_msg)
         self.assertEqual(_expectedValue, _retValue)
+
+    def test_ws_data_to_dict_does_not_execute_crafted_payload(self):
+        malicious_payload = "__import__('os').system('echo pwned')"
+        with self.assertRaises(json.JSONDecodeError):
+            utils.ws_data_to_dict(malicious_payload)
 
     def test_datetime_val_or_now(self):
         self.assertIsNone(utils.datetime_val_or_now('NotValidDate', '', False))
