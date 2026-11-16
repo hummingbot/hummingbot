@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
-
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
