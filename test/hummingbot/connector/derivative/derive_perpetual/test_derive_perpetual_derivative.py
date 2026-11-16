@@ -21,7 +21,6 @@ from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order
     DerivePerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
-from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC, SESSION_KEY_EXPIRY_MARGIN_SEC
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
