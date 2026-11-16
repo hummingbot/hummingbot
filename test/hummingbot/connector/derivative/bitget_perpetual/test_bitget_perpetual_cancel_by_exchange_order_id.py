@@ -126,6 +126,9 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
         # ``_is_unified_account`` probes the live API, so it must be mocked too:
         # unmocked, this test makes a real request and fails on auth instead.
         with (
+            patch.object(
+                self.exchange, "exchange_symbol_associated_to_pair", AsyncMock(return_value="BTCUSDT")
+            ),
             patch.object(self.exchange, "_is_unified_account", AsyncMock(return_value=False)),
             patch.object(self.exchange, "exchange_symbol_associated_to_pair",
                          AsyncMock(return_value="BTCUSDT")),
@@ -179,6 +182,4 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
-
     unittest.main()
