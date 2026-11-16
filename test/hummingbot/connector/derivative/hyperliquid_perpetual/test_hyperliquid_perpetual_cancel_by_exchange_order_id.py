@@ -133,9 +133,6 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
         async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
             return {"status": "ok", "response": {"data": {"statuses": ["success"]}}}
 
-        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
-            return {"status": "ok", "response": {"data": {"statuses": ["success"]}}}
-
         order = InFlightOrder(
             client_order_id="HBOT-2",
             trading_pair="ETH-USDT",
@@ -212,6 +209,7 @@ class HyperliquidCancelByExchangeOrderIdTest(unittest.TestCase):
 
         self.assertEqual("cancelByCloid", captured["action"]["type"])
         self.assertEqual([{"asset": 3, "cloid": "0xabc"}], captured["action"]["cancels"])
+
 
 if __name__ == "__main__":
     unittest.main()

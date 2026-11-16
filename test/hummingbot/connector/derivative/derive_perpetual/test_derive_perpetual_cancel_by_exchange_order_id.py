@@ -12,9 +12,10 @@ from unittest.mock import AsyncMock, patch
 import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
 
-CANCEL_PATH = CONSTANTS.CANCEL_ORDER_URL
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+
+CANCEL_PATH = CONSTANTS.CANCEL_ORDER_URL
 
 
 class DeriveCancelByExchangeOrderIdTest(unittest.TestCase):
@@ -127,9 +128,6 @@ class DeriveCancelByExchangeOrderIdTest(unittest.TestCase):
 
     def test_order_on_another_pair_is_not_settled(self):
         """A venue id is not unique across pairs; only the named order may move."""
-
-        async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
-            return {"result": {"order_status": "cancelled"}}
 
         async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
             return {"result": {"order_status": "cancelled"}}
