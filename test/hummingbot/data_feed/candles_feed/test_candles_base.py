@@ -13,9 +13,7 @@ import pandas as pd
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.binance_spot_candles.binance_spot_candles import (
-    BinanceSpotCandles,
-)
+from hummingbot.data_feed.candles_feed.binance_spot_candles.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 
 
