@@ -119,6 +119,7 @@ def order_json(
     filled: str = "0",
     client_id: Optional[int] = None,
     quantity: str = "0.01",
+    time: str = BLOCK_TIME,
 ) -> Dict[str, Any]:
     return {
         "id": order_id,
@@ -133,8 +134,8 @@ def order_json(
         "filled": filled,
         "time_in_force": "GTC",
         "block_height": 100,
-        "time": BLOCK_TIME,
-        "updated_at": BLOCK_TIME,
+        "time": time,
+        "updated_at": time,
     }
 
 

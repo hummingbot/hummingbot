@@ -25,6 +25,7 @@ ORDER_BOOK_SNAPSHOT_DEPTH = 100
 HISTORY_PAGE_LIMIT = 200
 HISTORY_MAX_PAGES = 50
 HISTORY_LOOKBACK_SECONDS = 60.0
+HISTORY_SCANS_CAPACITY = 1_000
 MAX_INDEXER_LAG_BLOCKS = 30
 
 MARKET_ORDER_SLIPPAGE = Decimal("0.05")
@@ -40,6 +41,7 @@ SEEN_FILLS_CAPACITY = 10_000
 FINISHED_ORDERS_CAPACITY = 10_000
 
 ORDER_NOT_FOUND_MESSAGE = "order not found on chain or indexer"
+HISTORY_INCOMPLETE_MESSAGE = "the order is older than the indexer history read so far; the next lookup reads further"
 CANCEL_REJECTED_MESSAGE = "order not found: the chain rejected the cancel"
 NOT_CONNECTED_MESSAGE = "NeutronX is not connected: new orders wait for the network check, cancels still go out"
 

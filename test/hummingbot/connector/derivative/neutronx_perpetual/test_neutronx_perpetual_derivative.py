@@ -1,7 +1,7 @@
 import asyncio
 import math
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from test.hummingbot.connector.derivative.neutronx_perpetual.fixtures import (
     ACCOUNT,
@@ -47,6 +47,10 @@ ORDERS_URL = re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/orders.*")
 FUNDING_URL = re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/funding.*")
 SAFE_ENSURE_FUTURE = "hummingbot.connector.derivative.neutronx_perpetual.neutronx_perpetual_derivative.safe_ensure_future"
 EMPTY_PAGE: Dict[str, Any] = {"items": [], "next_cursor": None}
+
+
+def _block_time(seconds: float) -> str:
+    return (datetime.fromisoformat(BLOCK_TIME) + timedelta(seconds=seconds)).isoformat()
 
 
 class NeutronxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -954,18 +958,53 @@ class NeutronxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
             self.assertEqual(6, self._requests(mock))
         self.assertIs(OrderState.CANCELED, update.new_state)
 
-    async def test_history_scan_stops_at_its_page_budget_and_says_so(self):
+    async def test_history_scan_reads_on_from_where_the_last_lookup_stopped(self):
         order = self._track("101", "555")
         order.creation_timestamp = datetime.fromisoformat(BLOCK_TIME).timestamp() - 3600
-        with aioresponses() as mock, patch.object(CONSTANTS, "HISTORY_MAX_PAGES", 3):
-            mock.get(FILLS_URL, payload={"items": [fill_json("900:1", 777)], "next_cursor": "900:1"}, repeat=True)
+        newest = re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/fills\?limit=200&pair=.*")
+        with aioresponses() as mock, patch.object(CONSTANTS, "HISTORY_MAX_PAGES", 2):
+            mock.get(newest, payload={"items": [fill_json("900:1", 777)], "next_cursor": "a"})
+            mock.get(
+                re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/fills\?cursor=a&.*"),
+                payload={"items": [fill_json("800:1", 777, time=_block_time(-100))], "next_cursor": "b"},
+            )
             self.assertEqual([], await self.connector._all_trade_updates_for_order(order))
-            self.assertEqual(3, self._requests(mock))
+            later = [fill_json("950:1", 777, time=_block_time(10)), fill_json("890:1", 777, time=_block_time(-70))]
+            mock.get(newest, payload={"items": later, "next_cursor": "c"})
+            mock.get(
+                re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/fills\?cursor=b&.*"),
+                payload={"items": [fill_json("700:1", 555, time=_block_time(-200))], "next_cursor": None},
+            )
+            updates = await self.connector._all_trade_updates_for_order(order)
+            self.assertEqual(4, self._requests(mock))
+        self.assertEqual(["700:1"], [update.trade_id for update in updates])
+        self.assertEqual(0, len(self.connector._history_scans))
         self.assertTrue(self.is_logged(
-            "WARNING",
-            f"Stopped reading {account_fills_path(ACCOUNT)} after 3 pages before the creation of NeutronX "
-            "order 101; older entries were not checked",
+            "INFO",
+            f"Read 2 pages of {account_fills_path(ACCOUNT)} without reaching the creation of NeutronX "
+            "order 101; the next lookup reads on from there",
         ))
+
+    async def test_status_lookup_cut_short_does_not_count_the_order_as_missing(self):
+        order = self._track("101", "559")
+        order.creation_timestamp = datetime.fromisoformat(BLOCK_TIME).timestamp() - 3600
+        newest = re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/orders\?limit=200&pair=.*")
+        with aioresponses() as mock, patch.object(CONSTANTS, "HISTORY_MAX_PAGES", 2):
+            mock.get(newest, payload={"items": [order_json(900)], "next_cursor": "a"})
+            mock.get(
+                re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/orders\?cursor=a&.*"),
+                payload={"items": [order_json(800)], "next_cursor": "b"},
+            )
+            with self.assertRaises(IOError) as raised:
+                await self.connector._request_order_status(order)
+            self.assertFalse(self.connector._is_order_not_found_during_status_update_error(raised.exception))
+            mock.get(newest, payload={"items": [order_json(950, time=_block_time(-70))], "next_cursor": "c"})
+            mock.get(
+                re.compile(rf"^{INDEXER_URL}/accounts/{ACCOUNT}/orders\?cursor=b&.*"),
+                payload={"items": [order_json(559, "CANCELLED")], "next_cursor": None},
+            )
+            update = await self.connector._request_order_status(order)
+        self.assertIs(OrderState.CANCELED, update.new_state)
 
     async def test_final_frame_from_the_stream_waits_for_the_fills(self):
         order = self._track("101", "555", amount="0.02")

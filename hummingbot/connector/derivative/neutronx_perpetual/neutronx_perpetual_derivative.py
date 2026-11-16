@@ -71,6 +71,12 @@ class _Settling:
     backfilled_at: float = -math.inf
 
 
+@dataclass(frozen=True)
+class _HistoryScan:
+    newest: float
+    cursor: str
+
+
 def _remember(cache: "OrderedDict[str, Any]", key: str, value: Any, capacity: int) -> None:
     cache[key] = value
     cache.move_to_end(key)
@@ -113,6 +119,7 @@ class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
         self._seen_fills: "OrderedDict[str, None]" = OrderedDict()
         self._finished: "OrderedDict[str, OrderUpdate]" = OrderedDict()
         self._settling: Dict[str, _Settling] = {}
+        self._history_scans: "OrderedDict[str, _HistoryScan]" = OrderedDict()
         self._indexer_backoff = web_utils.IndexerBackoff()
         self._network_failures = 0
         self._tickers = web_utils.SharedRequest(self._fetch_tickers, CONSTANTS.TICKERS_TTL)
@@ -580,9 +587,12 @@ class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
         chain_order = await self._data_source.order(int(exchange_order_id))
         if chain_order is not None:
             return await self._settled_from_chain(tracked_order, chain_order)
-        async for indexed in self._indexer_history(account_orders_path(self._account_address), tracked_order, OrderV1):
+        path = account_orders_path(self._account_address)
+        async for indexed in self._indexer_history(path, tracked_order, OrderV1):
             if indexed.order_id == int(exchange_order_id):
                 return await self._settled_from_indexer(tracked_order, indexed)
+        if self._history_key(path, tracked_order) in self._history_scans:
+            raise IOError(CONSTANTS.HISTORY_INCOMPLETE_MESSAGE)
         raise IOError(CONSTANTS.ORDER_NOT_FOUND_MESSAGE)
 
     async def _settled_from_chain(self, order: InFlightOrder, chain_order: Order) -> OrderUpdate:
@@ -647,6 +657,9 @@ class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _indexer_history(self, path: str, order: InFlightOrder, model: Any) -> AsyncIterator[Any]:
         since = self._history_start(order)
+        key = self._history_key(path, order)
+        resume = self._history_scans.pop(key, None)
+        newest = None
         cursor = None
         for _ in range(CONSTANTS.HISTORY_MAX_PAGES):
             query = {"pair": translators.to_exchange_pair(order.trading_pair), "limit": CONSTANTS.HISTORY_PAGE_LIMIT}
@@ -659,10 +672,19 @@ class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
             cursor = page.next_cursor
             if not cursor or not items or items[-1].time.timestamp() < since:
                 return
-        self.logger().warning(
-            f"Stopped reading {path} after {CONSTANTS.HISTORY_MAX_PAGES} pages before the creation of NeutronX "
-            f"order {order.client_order_id}; older entries were not checked"
+            if newest is None:
+                newest = items[0].time.timestamp()
+            if resume is not None and items[-1].time.timestamp() < resume.newest - CONSTANTS.HISTORY_LOOKBACK_SECONDS:
+                cursor, resume = resume.cursor, None
+        _remember(self._history_scans, key, _HistoryScan(newest=newest, cursor=cursor), CONSTANTS.HISTORY_SCANS_CAPACITY)
+        self.logger().info(
+            f"Read {CONSTANTS.HISTORY_MAX_PAGES} pages of {path} without reaching the creation of NeutronX "
+            f"order {order.client_order_id}; the next lookup reads on from there"
         )
+
+    @staticmethod
+    def _history_key(path: str, order: InFlightOrder) -> str:
+        return f"{path} {order.client_order_id}"
 
     @staticmethod
     def _history_start(order: InFlightOrder) -> float:
