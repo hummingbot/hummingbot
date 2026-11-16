@@ -10,12 +10,8 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.derivative.binance_perpetual import (
-    binance_perpetual_constants as CONSTANTS,
-)
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import (
-    BinancePerpetualDerivative,
-)
+from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
