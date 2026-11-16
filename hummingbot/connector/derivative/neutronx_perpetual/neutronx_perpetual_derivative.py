@@ -659,6 +659,10 @@ class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
             cursor = page.next_cursor
             if not cursor or not items or items[-1].time.timestamp() < since:
                 return
+        self.logger().warning(
+            f"Stopped reading {path} after {CONSTANTS.HISTORY_MAX_PAGES} pages before the creation of NeutronX "
+            f"order {order.client_order_id}; older entries were not checked"
+        )
 
     @staticmethod
     def _history_start(order: InFlightOrder) -> float:

@@ -232,3 +232,27 @@ class OrderTxQueueTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(ConnectionError):
             await self.queue.place(_request(11))
         self.assertFalse(self.queue.running)
+
+    async def test_stop_fails_the_batch_in_flight_and_everything_queued(self):
+        queue = OrderTxQueue(self.sender, max_places_per_tx=2, flush_interval=0.01)
+        queue.start()
+        sending = asyncio.Event()
+
+        async def send(msgs, gas_limit):
+            sending.set()
+            await asyncio.Event().wait()
+
+        self.sender.send.side_effect = send
+        in_flight = [asyncio.ensure_future(queue.place(_request(i))) for i in (11, 12, 13)]
+        in_flight.append(asyncio.ensure_future(queue.cancel(1)))
+        await sending.wait()
+        queued = [asyncio.ensure_future(queue.place(_request(i))) for i in (14, 15)]
+        queued.append(asyncio.ensure_future(queue.cancel(2)))
+        await asyncio.sleep(0)
+        self.assertEqual(3, len(queue._pending.places))
+        await queue.stop()
+        results = await asyncio.wait_for(asyncio.gather(*in_flight, *queued, return_exceptions=True), timeout=1)
+        self.assertEqual(7, len(results))
+        self.assertTrue(all(isinstance(result, ConnectionError) for result in results))
+        self.sender.send.assert_awaited_once()
+        self.assertEqual(0, queue._pending.size + queue._in_flight.size)

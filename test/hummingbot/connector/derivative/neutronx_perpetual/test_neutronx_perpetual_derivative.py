@@ -24,6 +24,7 @@ from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from neutronx_sdk import OrderType as ChainOrderType, Side, TimeInForce
 from neutronx_sdk.indexer import FillV1, StreamFrame
+from neutronx_sdk.indexer.api import account_fills_path
 
 from hummingbot.connector.derivative.neutronx_perpetual import neutronx_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.neutronx_perpetual.data_sources import translators
@@ -927,6 +928,44 @@ class NeutronxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
             with self.assertRaises(IOError):
                 await self.connector._request_order_status(order)
             self.assertEqual(1, self._requests(mock))
+
+    async def test_fill_history_reads_past_a_thousand_newer_fills(self):
+        order = self._track("101", "555", amount="0.02")
+        order.creation_timestamp = datetime.fromisoformat(BLOCK_TIME).timestamp() - 3600
+        with aioresponses() as mock:
+            for page in range(5):
+                newer = [fill_json(f"{900 - page}:{i}", 777) for i in range(CONSTANTS.HISTORY_PAGE_LIMIT)]
+                mock.get(FILLS_URL, payload={"items": newer, "next_cursor": f"{900 - page}:0"})
+            mock.get(FILLS_URL, payload={"items": [fill_json("401:2", 555), fill_json("401:1", 555)], "next_cursor": None})
+            updates = await self.connector._all_trade_updates_for_order(order)
+            self.assertEqual(6, self._requests(mock))
+        self.assertEqual(["401:2", "401:1"], [update.trade_id for update in updates])
+
+    async def test_status_lookup_reads_past_a_thousand_newer_orders(self):
+        order = self._track("101", "559")
+        order.creation_timestamp = datetime.fromisoformat(BLOCK_TIME).timestamp() - 3600
+        with aioresponses() as mock:
+            for page in range(5):
+                first = 1000 + page * CONSTANTS.HISTORY_PAGE_LIMIT
+                newer = [order_json(first + i) for i in range(CONSTANTS.HISTORY_PAGE_LIMIT)]
+                mock.get(ORDERS_URL, payload={"items": newer, "next_cursor": f"{100 - page}:0"})
+            mock.get(ORDERS_URL, payload={"items": [order_json(559, "CANCELLED")], "next_cursor": None})
+            update = await self.connector._request_order_status(order)
+            self.assertEqual(6, self._requests(mock))
+        self.assertIs(OrderState.CANCELED, update.new_state)
+
+    async def test_history_scan_stops_at_its_page_budget_and_says_so(self):
+        order = self._track("101", "555")
+        order.creation_timestamp = datetime.fromisoformat(BLOCK_TIME).timestamp() - 3600
+        with aioresponses() as mock, patch.object(CONSTANTS, "HISTORY_MAX_PAGES", 3):
+            mock.get(FILLS_URL, payload={"items": [fill_json("900:1", 777)], "next_cursor": "900:1"}, repeat=True)
+            self.assertEqual([], await self.connector._all_trade_updates_for_order(order))
+            self.assertEqual(3, self._requests(mock))
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            f"Stopped reading {account_fills_path(ACCOUNT)} after 3 pages before the creation of NeutronX "
+            "order 101; older entries were not checked",
+        ))
 
     async def test_final_frame_from_the_stream_waits_for_the_fills(self):
         order = self._track("101", "555", amount="0.02")

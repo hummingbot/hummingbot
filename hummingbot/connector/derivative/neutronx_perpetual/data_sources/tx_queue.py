@@ -75,6 +75,7 @@ class OrderTxQueue:
         self._gas_ceiling = gas_ceiling
         self._flush_interval = flush_interval
         self._pending = _Pending()
+        self._in_flight = _Pending()
         self._wakeup = asyncio.Event()
         self._task: Optional[asyncio.Task] = None
 
@@ -100,7 +101,7 @@ class OrderTxQueue:
                 await task
             except asyncio.CancelledError:
                 pass
-        self._fail_all(self._take(), ConnectionError("the NeutronX transaction queue stopped"))
+        self._fail_unfinished()
 
     async def place(self, request: OrderRequest) -> PlacedOrder:
         future = self._future()
@@ -121,15 +122,26 @@ class OrderTxQueue:
         return asyncio.get_running_loop().create_future()
 
     async def _run(self) -> None:
-        while True:
-            await self._wakeup.wait()
-            await asyncio.sleep(self._flush_interval)
-            self._wakeup.clear()
-            batch = self._take()
-            if batch.size:
-                await asyncio.gather(*(self._submit(part) for part in self._by_kind(batch)))
-            if self._pending.size:
-                self._wakeup.set()
+        try:
+            while True:
+                await self._wakeup.wait()
+                await asyncio.sleep(self._flush_interval)
+                self._wakeup.clear()
+                self._in_flight = self._take()
+                if self._in_flight.size:
+                    await asyncio.gather(*(self._submit(part) for part in self._by_kind(self._in_flight)))
+                self._in_flight = _Pending()
+                if self._pending.size:
+                    self._wakeup.set()
+        finally:
+            self._fail_unfinished()
+
+    def _fail_unfinished(self) -> None:
+        unfinished = (self._in_flight, self._pending)
+        self._in_flight, self._pending = _Pending(), _Pending()
+        error = ConnectionError("the NeutronX transaction queue stopped")
+        for batch in unfinished:
+            self._fail_all(batch, error)
 
     def _take(self) -> _Pending:
         pending = self._pending
