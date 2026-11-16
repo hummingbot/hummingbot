@@ -206,8 +206,14 @@ class HyperliquidPerpetualAuth(AuthBase):
         # cancel as ``cancelByCloid`` made an ``oid`` cancel unsignable -- the venue
         # rejected it and the order stayed live, which is precisely the case this
         # path exists for (an order whose client id died with its process).
-        action_type = params.get("type", "cancelByCloid")
+        action_type = params.get("type") or "cancelByCloid"
         cancel = params["cancels"]
+        # The payload says how the order is addressed. A caller that asks for
+        # ``cancel`` while carrying a ``cloid`` is sending a client-id cancel, which
+        # this connector has always signed as ``cancelByCloid``; refusing it turned a
+        # working cancel into a ValueError and left the order resting.
+        if action_type == "cancel" and "oid" not in cancel and "cloid" in cancel:
+            action_type = "cancelByCloid"
         required = "oid" if action_type == "cancel" else "cloid"
         if required not in cancel:
             raise ValueError(
