@@ -167,6 +167,9 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
         processed = []
         with (
+            patch.object(
+                self.exchange, "exchange_symbol_associated_to_pair", AsyncMock(return_value="BTCUSDT")
+            ),
             patch.object(self.exchange, "_is_unified_account", AsyncMock(return_value=False)),
             patch.object(self.exchange, "_api_post", side_effect=fake_post),
             patch.object(
