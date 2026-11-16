@@ -17,12 +17,8 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.derivative.gate_io_perpetual import (
-    gate_io_perpetual_constants as CONSTANTS,
-)
-from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import (
-    GateIoPerpetualDerivative,
-)
+from hummingbot.connector.derivative.gate_io_perpetual import gate_io_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import GateIoPerpetualDerivative
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 

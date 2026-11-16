@@ -11,18 +11,14 @@ venue's own order id, so the connector can clear an orphaned contract without ev
 consulting the tracker.
 """
 import asyncio
-from decimal import Decimal
 import unittest
+from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.derivative.bitget_perpetual import (
-    bitget_perpetual_constants as CONSTANTS,
-)
+from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_derivative import BitgetPerpetualDerivative
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_derivative import (
-    BitgetPerpetualDerivative,
-)
 
 
 class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
