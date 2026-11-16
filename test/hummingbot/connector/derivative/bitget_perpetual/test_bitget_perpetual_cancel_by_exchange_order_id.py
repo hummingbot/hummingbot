@@ -144,6 +144,7 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
         self.assertEqual(1, len(processed), "the tracker never saw the cancellation")
         self.assertEqual(OrderState.CANCELED, processed[0].new_state)
         self.assertEqual("HBOT-1", processed[0].client_order_id)
+
     def test_order_on_another_pair_is_not_settled(self):
         """A venue id is not unique across pairs; only the named order may move."""
         async def fake_post(path_url, data=None, is_auth_required=False, **kwargs):
@@ -175,6 +176,7 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
         self.assertEqual([], processed, "cancelling on BTC-USDT settled an ETH-USDT order")
         self.assertIn("HBOT-2", self.exchange.in_flight_orders)
+
 
 if __name__ == "__main__":
     unittest.main()

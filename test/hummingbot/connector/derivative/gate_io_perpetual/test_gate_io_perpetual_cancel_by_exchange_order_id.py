@@ -166,4 +166,3 @@ class GateIoPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
 
         self.assertEqual([], processed, "cancelling on BTC-USDT settled an ETH-USDT order")
         self.assertIn("HBOT-2", self.exchange.in_flight_orders)
-
