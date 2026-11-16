@@ -14,9 +14,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.derivative.hyperliquid_perpetual import (
-    hyperliquid_perpetual_constants as CONSTANTS,
-)
+from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
     HyperliquidPerpetualDerivative,
 )
