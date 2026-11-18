@@ -2981,7 +2981,18 @@ class XrplExchange(ExchangePyBase):
             )
 
         # Merge default markets with custom markets
-        loaded_markets.update(self._custom_markets)
+        for k, v in self._custom_markets.items():
+            if isinstance(v, XRPLMarket):
+                if v.trading_pair_symbol is None:
+                    v = v.model_copy(update={"trading_pair_symbol": k})
+                loaded_markets[k] = v
+            elif isinstance(v, dict):
+                v_copy = dict(v)
+                if "trading_pair_symbol" not in v_copy or v_copy["trading_pair_symbol"] is None:
+                    v_copy["trading_pair_symbol"] = k
+                loaded_markets[k] = XRPLMarket(**v_copy)
+            else:
+                loaded_markets[k] = v
 
         return loaded_markets
 
