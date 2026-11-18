@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import List
 
-import pandas_ta as ta  # noqa: F401
+from fin_primitives import ta
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 

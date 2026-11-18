@@ -38,7 +38,6 @@ dependencies:
   - numpy>=2.1.0
   - objgraph
   - pandas>=2.2.3
-  - pandas-ta>=0.4.26b
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
@@ -63,3 +62,5 @@ dependencies:
   - xrpl-py==4.4.0
   - yaml>=0.2.5
   - zlib>=1.2.13
+  - pip:
+    - fin-primitives[pandas]>=3.9.0

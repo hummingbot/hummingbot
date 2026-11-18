@@ -1,8 +1,8 @@
 from sys import float_info as sflt
 from typing import List
 
+import fin_primitives.pandas  # noqa: F401
 import pandas as pd
-import pandas_ta as ta  # noqa: F401
 import talib
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -92,7 +92,7 @@ class BollingerV2Controller(DirectionalTradingControllerBase):
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
-        df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
+        df.fp.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
         df["upperband"], df["middleband"], df["lowerband"] = talib.BBANDS(real=df["close"], timeperiod=self.config.bb_length, nbdevup=self.config.bb_std, nbdevdn=self.config.bb_std, matype=MA_Type.SMA)
 
         ulr = self.non_zero_range(df["upperband"], df["lowerband"])

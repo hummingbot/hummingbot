@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Set, Union
 
-import pandas_ta as ta  # noqa: F401
+from fin_primitives import ta
 from pydantic import Field, field_validator
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
