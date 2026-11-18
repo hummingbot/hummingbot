@@ -497,7 +497,12 @@ class GridExecutor(ExecutorBase):
             return []
         levels_allowed = self._filter_levels_by_activation_bounds()
         sorted_levels_by_proximity = self._sort_levels_by_proximity(levels_allowed)
-        return sorted_levels_by_proximity[:self.config.max_orders_per_batch]
+        # Cap the batch by the remaining headroom under max_open_orders, so one
+        # tick can never place more orders than the cap allows in total.
+        remaining_open_orders = self.config.max_open_orders - n_open_orders
+        batch_limit = self.config.max_orders_per_batch
+        limit = remaining_open_orders if batch_limit is None else min(remaining_open_orders, batch_limit)
+        return sorted_levels_by_proximity[:limit]
 
     def get_close_orders_to_create(self):
         """
