@@ -137,8 +137,10 @@ class PositionHold:
             # Snapshot before
             prev_net = self.net_amount_base
 
-            # Update volume traded in quote
-            self.volume_traded_quote += executed_amount_quote
+            # LP net trades summarize inventory conversion, not additional swaps.
+            # The LP executor reports its accumulated swap volume separately.
+            if not order.get("lp_net_trade", False):
+                self.volume_traded_quote += executed_amount_quote
 
             # Update buy/sell totals (for logging/diagnostics)
             if is_buy:
@@ -278,6 +280,8 @@ class ExecutorOrchestrator:
         # Only add to realized PnL if not a position hold (consistent with generate_performance_report)
         if executor_info.close_type != CloseType.POSITION_HOLD:
             report.realized_pnl_quote += executor_info.net_pnl_quote
+        # Held LP inventory does not carry the executor's accumulated swap volume.
+        if executor_info.close_type != CloseType.POSITION_HOLD or executor_info.type == "lp_executor":
             report.volume_traded += executor_info.filled_amount_quote
         if executor_info.close_type:
             report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type,
@@ -795,6 +799,8 @@ class ExecutorOrchestrator:
                 # Position holds will be counted separately to avoid double counting
                 if executor_info.close_type != CloseType.POSITION_HOLD:
                     report.realized_pnl_quote += executor_info.net_pnl_quote
+                # Ordinary held fills are counted by positions; LP swap volume is not.
+                if executor_info.close_type != CloseType.POSITION_HOLD or executor_info.type == "lp_executor":
                     report.volume_traded += executor_info.filled_amount_quote
                 if executor_info.close_type:
                     report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1

@@ -226,7 +226,12 @@ class DeriveRateSourceTest(unittest.TestCase):
         self.configure_trading_rules_response(mock_api=mock_api)
         mock_rules.side_effect = self.trading_rules_request_mock_response
         self.exchange._instrument_ticker = mocked_response["result"]["instruments"]
-        mock_prices.side_effect = [res]
+        mock_prices.side_effect = [res, res]
+
+        # The default oracle call includes Derive pairs even without a quote filter.
+        prices = self.async_run_with_timeout(rate_source.get_prices())
+        self.assertIn(self.trading_pair, prices)
+        self.assertEqual(expected_rate, prices[self.trading_pair])
 
         prices = self.async_run_with_timeout(rate_source.get_prices(quote_token="USDC"))
         self.assertIn(self.trading_pair, prices)

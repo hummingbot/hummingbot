@@ -52,7 +52,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
 
-        self._tx_client: DydxPerpetualV4Client = self._create_tx_client()
+        self._tx_client: Optional[DydxPerpetualV4Client] = self._create_tx_client()
 
         self._margin_fractions = {}
         self._position_id = None
@@ -152,9 +152,12 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         await self._update_trading_rules()
-        await self._tx_client.initialize_trading_account()
+        if self._trading_required and self._tx_client is not None:
+            await self._tx_client.initialize_trading_account()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        if self._tx_client is None:
+            raise RuntimeError("Trading client is not initialized for non-trading connector.")
         async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
             if not self._margin_fractions:
                 await self._update_trading_rules()
@@ -272,6 +275,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         expiration = CONSTANTS.ORDER_EXPIRATION
         reduce_only = False
 
+        if self._tx_client is None:
+            raise RuntimeError("Trading client is not initialized for non-trading connector.")
         post_only = order_type is OrderType.LIMIT_MAKER
         market = await self.exchange_symbol_associated_to_pair(trading_pair)
         try:
@@ -496,6 +501,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         return trading_rules
 
     async def _update_balances(self):
+        if not self._dydx_v4_perpetual_chain_address:
+            return
         path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
         response: Dict[str, Dict[str, Any]] = await self._api_get(
             path_url=path, params={}, limit_id=CONSTANTS.PATH_SUBACCOUNT
@@ -695,7 +702,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             throttler=self._throttler,
         )
 
-    def _create_tx_client(self) -> DydxPerpetualV4Client:
+    def _create_tx_client(self) -> Optional[DydxPerpetualV4Client]:
+        if not self._trading_required:
+            return None
         return DydxPerpetualV4Client(
             self._dydx_v4_perpetual_secret_phrase,
             self._dydx_v4_perpetual_chain_address,
@@ -763,6 +772,14 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY]
 
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        """
+        dydx_v4 only supports the ONEWAY position mode and has no exchange endpoint to query it,
+        so report the locally tracked mode. This lets the base class treat a repeated
+        set_position_mode(ONEWAY) request as already satisfied instead of resubmitting it every time.
+        """
+        return self.position_mode
+
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
@@ -786,25 +803,24 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
         """
         if mode != PositionMode.ONEWAY:
+            message = "dydx_v4 only supports the ONEWAY position mode."
             self.trigger_event(
                 AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(
-                    self.current_timestamp, trading_pair, mode, "dydx_v4 only supports the ONEWAY position mode."
-                ),
+                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode, message),
             )
             self.logger().debug(
                 f"dydx_v4 encountered a problem switching position mode to "
                 f"{mode} for {trading_pair}"
                 f" (dydx_v4 only supports the ONEWAY position mode)"
             )
+            return False, message
         else:
-            self._position_mode = PositionMode.ONEWAY
-            super().set_position_mode(PositionMode.ONEWAY)
             self.trigger_event(
                 AccountEvent.PositionModeChangeSucceeded,
                 PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
             )
             self.logger().debug(f"dydx_v4 switching position mode to " f"{mode} for {trading_pair} succeeded.")
+            return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         success = True

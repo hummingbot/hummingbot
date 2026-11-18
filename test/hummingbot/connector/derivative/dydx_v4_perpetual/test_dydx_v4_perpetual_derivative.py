@@ -1006,15 +1006,55 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         # Dydx has no partial fill status
         pass
 
-    @aioresponses()
-    async def test_set_position_mode_success(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+    async def test_set_position_mode_success(self):
+        success, msg = await self.exchange._trading_pair_position_mode_set(
+            PositionMode.ONEWAY, self.trading_pair
+        )
 
-    @aioresponses()
-    async def test_set_position_mode_failure(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+        self.assertTrue(success)
+        self.assertEqual("", msg)
+        self.assertTrue(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 switching position mode to {PositionMode.ONEWAY} for {self.trading_pair} succeeded.",
+            )
+        )
+
+    async def test_set_position_mode_failure(self):
+        success, msg = await self.exchange._trading_pair_position_mode_set(
+            PositionMode.HEDGE, self.trading_pair
+        )
+
+        self.assertFalse(success)
+        self.assertEqual("dydx_v4 only supports the ONEWAY position mode.", msg)
+        self.assertTrue(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 encountered a problem switching position mode to "
+                f"{PositionMode.HEDGE} for {self.trading_pair}"
+                f" (dydx_v4 only supports the ONEWAY position mode)",
+            )
+        )
+
+    async def test_set_position_mode_already_set_is_a_no_op(self):
+        # dydx_v4 only supports ONEWAY and tracks it locally (there is no exchange endpoint to
+        # query it), so a resubmission of the already-set mode must short-circuit instead of
+        # flooding the logs with a repeated (or, before the fix, an unhandled-exception) error
+        # every time it is called (GitHub #8482).
+        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
+
+        await self.exchange._execute_set_position_mode(PositionMode.ONEWAY)
+
+        self.assertTrue(
+            self.is_logged("INFO", f"Position mode already set to {PositionMode.ONEWAY} on exchange.")
+        )
+        self.assertFalse(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 switching position mode to {PositionMode.ONEWAY} for {self.trading_pair} succeeded.",
+            )
+        )
+        self.assertFalse(any(record.levelname == "ERROR" for record in self.log_records))
 
     @aioresponses()
     async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
@@ -1636,3 +1676,66 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    def test_non_trading_connector_initialization_empty_mnemonic(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        self.assertIsNone(connector._tx_client)
+        self.assertFalse(connector.is_trading_required)
+
+    @patch.object(DydxV4PerpetualDerivative, "_update_trading_rules", new_callable=AsyncMock)
+    async def test_non_trading_connector_start_network_does_not_call_tx_client(self, mock_update_trading_rules):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        with patch("hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase.start_network", new_callable=AsyncMock):
+            await connector.start_network()
+        mock_update_trading_rules.assert_called_once()
+        self.assertIsNone(connector._tx_client)
+
+    async def test_non_trading_connector_place_order_raises_runtime_error(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        with self.assertRaises(RuntimeError):
+            await connector._place_order(
+                order_id="123",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10"),
+            )
+
+    async def test_non_trading_connector_place_cancel_raises_runtime_error(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        tracked_order = InFlightOrder(
+            client_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("10"),
+            creation_timestamp=123456789,
+        )
+        with self.assertRaises(RuntimeError):
+            await connector._place_cancel(order_id="123", tracked_order=tracked_order)
+
+    def test_trading_required_connector_with_empty_mnemonic_raises_error(self):
+        with self.assertRaises(ValueError):
+            DydxV4PerpetualDerivative(
+                dydx_v4_perpetual_secret_phrase="",
+                dydx_v4_perpetual_chain_address="",
+                trading_required=True,
+            )
