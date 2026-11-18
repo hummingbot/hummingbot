@@ -10,7 +10,9 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
     DirectionalTradingControllerConfigBase,
 )
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
+from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
@@ -112,3 +114,49 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(None, self.mock_controller_config.parse_trailing_stop(""))
         trailing_stop = TrailingStop(activation_price=Decimal("2"), trailing_delta=Decimal(0.5))
         self.assertEqual(trailing_stop, self.mock_controller_config.parse_trailing_stop(trailing_stop))
+
+    @staticmethod
+    def _make_executor_info(executor_id: str, side: TradeType, timestamp: float) -> ExecutorInfo:
+        return ExecutorInfo(
+            id=executor_id,
+            timestamp=timestamp,
+            type="position_executor",
+            status=RunnableStatus.RUNNING,
+            config=PositionExecutorConfig(
+                timestamp=timestamp, controller_id="test", connector_name="binance_perpetual",
+                trading_pair="ETH-USDT", side=side, entry_price=Decimal(100), amount=Decimal(1)),
+            net_pnl_pct=Decimal("0"),
+            net_pnl_quote=Decimal("0"),
+            cum_fees_quote=Decimal("0"),
+            filled_amount_quote=Decimal("0"),
+            is_active=True,
+            is_trading=True,
+            custom_info={"side": side},
+        )
+
+    def test_can_create_executor_sell_signal_counts_only_sell_side(self):
+        # Regression test for #8566: the side filter evaluated to the constant
+        # TradeType.SELL for sell signals, so every active executor was counted
+        # and a sell signal was refused while only BUY executors were running.
+        self.controller.market_data_provider.time = MagicMock(return_value=1000000)
+        self.controller.executors_info = [
+            self._make_executor_info("buy-1", TradeType.BUY, 1000),
+            self._make_executor_info("buy-2", TradeType.BUY, 1001),
+        ]
+        self.assertTrue(self.controller.can_create_executor(-1))
+
+    def test_can_create_executor_sell_signal_refused_at_sell_side_limit(self):
+        self.controller.market_data_provider.time = MagicMock(return_value=1000000)
+        self.controller.executors_info = [
+            self._make_executor_info("sell-1", TradeType.SELL, 1000),
+            self._make_executor_info("sell-2", TradeType.SELL, 1001),
+        ]
+        self.assertFalse(self.controller.can_create_executor(-1))
+
+    def test_can_create_executor_buy_signal_refused_at_buy_side_limit(self):
+        self.controller.market_data_provider.time = MagicMock(return_value=1000000)
+        self.controller.executors_info = [
+            self._make_executor_info("buy-1", TradeType.BUY, 1000),
+            self._make_executor_info("buy-2", TradeType.BUY, 1001),
+        ]
+        self.assertFalse(self.controller.can_create_executor(1))
