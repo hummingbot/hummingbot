@@ -8,6 +8,7 @@ from typing import Any, Callable, List, Optional, Tuple
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
 import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -1262,6 +1263,72 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout(self.exchange._update_order_status())
         self.assertFalse(order.is_done)
+
+    @aioresponses()
+    def test_update_order_status_http_server_error_does_not_mark_order_lost(self, mock_api):
+        # An exchange outage (HTTP 500 on every status poll) must not turn an open order into a lost one:
+        # strategies re-place lost orders, leaving the original open and untracked on the exchange.
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        url = web_utils.public_rest_url(CONSTANTS.ORDER_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.post(regex_url, status=500, repeat=True)
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 2):
+            self.async_run_with_timeout(self.exchange._update_order_status())
+
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertFalse(order.is_done)
+        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records.get(order.client_order_id, 0))
+        self.assertTrue(any("Transient error fetching status update for the active order" in r.getMessage()
+                            for r in self.log_records))
+
+    def test_handle_update_error_counts_non_transient_errors_as_not_found(self):
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        error = IOError("Error executing request POST https://api.hyperliquid.xyz/info. HTTP status is 400. Error: bad")
+
+        self.async_run_with_timeout(self.exchange._handle_update_error_for_active_order(order, error))
+
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records.get(order.client_order_id, 0))
+
+    def test_is_transient_request_error(self):
+        transient = [
+            IOError("Error executing request POST https://api.hyperliquid.xyz/info. HTTP status is 500. Error: x"),
+            IOError("Error executing request POST https://api.hyperliquid.xyz/info. HTTP status is 502. Error: x"),
+            IOError("Error executing request POST https://api.hyperliquid.xyz/info. HTTP status is 429. Error: x"),
+            aiohttp.ClientConnectionError("connection reset"),
+            aiohttp.ServerDisconnectedError(),
+            ConnectionResetError(),
+        ]
+        not_transient = [
+            IOError("Error executing request POST https://api.hyperliquid.xyz/info. HTTP status is 400. Error: x"),
+            IOError("HTTP status is 5000"),
+            KeyError("status"),
+            ValueError("unexpected response"),
+        ]
+        for error in transient:
+            self.assertTrue(self.exchange._is_transient_request_error(error), repr(error))
+        for error in not_transient:
+            self.assertFalse(self.exchange._is_transient_request_error(error), repr(error))
 
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):

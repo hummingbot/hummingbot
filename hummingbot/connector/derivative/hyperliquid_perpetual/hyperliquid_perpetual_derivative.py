@@ -1,9 +1,11 @@
 import asyncio
 import hashlib
+import re
 import time
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
+import aiohttp
 import eth_account
 from bidict import bidict
 from eth_utils import to_checksum_address
@@ -828,12 +830,28 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         except asyncio.CancelledError:
             raise
         except Exception as request_error:
+            if self._is_transient_request_error(request_error):
+                # The request failed (exchange/server or network error): this says nothing about the order, which
+                # may still be open. Counting it as "not found" marks live orders as lost during an outage.
+                self.logger().warning(
+                    f"Transient error fetching status update for the active order {order.client_order_id} "
+                    f"(not counted as not found, retrying next poll): {request_error}"
+                )
+                return
             self.logger().warning(
                 f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
             )
             self.logger().debug(
                 f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
             await self._order_tracker.process_order_not_found(order.client_order_id)
+
+    @staticmethod
+    def _is_transient_request_error(error: Exception) -> bool:
+        """True for errors that carry no information about the order: HTTP 429 / 5xx responses and connection
+        failures. A genuinely unknown order is reported by Hyperliquid as {"status": "unknownOid"} and handled above."""
+        if isinstance(error, (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, ConnectionError)):
+            return True
+        return re.search(r"HTTP status is (429|5\d\d)\b", str(error)) is not None
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         client_order_id = tracked_order.client_order_id
