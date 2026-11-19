@@ -57,18 +57,25 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
         if v is None or v == "":
             return [1 for _ in validation_info.data['dca_spreads']]
         if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(validation_info.data['dca_spreads']):
-            raise ValueError(
-                f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
-        return v
+            parsed = [float(x.strip()) for x in v.split(',')]
+        elif isinstance(v, list):
+            if len(v) != len(validation_info.data['dca_spreads']):
+                raise ValueError(
+                    f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
+            parsed = [float(x) for x in v]
+        else:
+            return v
+        if sum(parsed) == 0:
+            raise ValueError("dca_amounts must not sum to zero")
+        return parsed
 
 
 class DManMakerV2(MarketMakingControllerBase):
     def __init__(self, config: DManMakerV2Config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.dca_amounts_pct = [Decimal(amount) / sum(self.config.dca_amounts) for amount in self.config.dca_amounts]
+        total = sum(self.config.dca_amounts)
+        self.dca_amounts_pct = [Decimal(amount) / total for amount in self.config.dca_amounts]
         self.spreads = self.config.dca_spreads
 
     def first_level_refresh_condition(self, executor):
