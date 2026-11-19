@@ -1120,6 +1120,62 @@ class XrplExchange(ExchangePyBase):
                 error=str(e),
             )
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an XRPL offer by its offer sequence, tracked or not.
+
+        ``_place_cancel`` reaches the venue through the in-flight tracker, so an
+        offer whose owning process is gone is unreachable. The ledger only needs
+        the offer sequence, which is the leading field of the exchange order id
+        (``<sequence>-<pair>``), so an untracked offer can be cancelled exactly
+        like a tracked one.
+        """
+        try:
+            offer_sequence = int(str(exchange_order_id).split("-")[0])
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"XRPL exchange order id must start with the offer sequence: {exchange_order_id!r}"
+            ) from None
+
+        transaction = OfferCancel(
+            account=self._xrpl_auth.get_account(),
+            offer_sequence=offer_sequence,
+        )
+        submit_result: TransactionSubmitResult = await self.tx_pool.submit_transaction(
+            transaction=transaction,
+            fail_hard=True,
+            max_retries=CONSTANTS.CANCEL_MAX_RETRY,
+        )
+        # temBAD_SEQUENCE means the offer is already gone -- that is the outcome
+        # we wanted, so it is not an error.
+        if not submit_result.success and submit_result.prelim_result != "temBAD_SEQUENCE":
+            raise ValueError(
+                f"OfferCancel for sequence {offer_sequence} failed: "
+                f"{submit_result.error or submit_result.prelim_result}"
+            )
+
+        # Submission is not cancellation. ``terQUEUED`` means the transaction is
+        # sitting in the ledger's queue and can still fail or expire, and this
+        # path exists for offers nothing tracks -- so there is no later status
+        # update that would notice it never landed. Confirm here, or say so.
+        if submit_result.success and submit_result.signed_tx is not None:
+            verify_result: TransactionVerifyResult = await self.verification_pool.submit_verification(
+                signed_tx=submit_result.signed_tx,
+                prelim_result=submit_result.prelim_result or "tesSUCCESS",
+                timeout=CONSTANTS.VERIFY_TX_TIMEOUT,
+            )
+            if not verify_result.verified:
+                raise ValueError(
+                    f"OfferCancel for sequence {offer_sequence} was submitted but not "
+                    f"confirmed on the ledger (prelim_result={submit_result.prelim_result}); "
+                    f"the offer may still be live."
+                )
+
+        self.logger().info(
+            f"Cancelled offer by sequence {offer_sequence} "
+            f"(prelim_result={submit_result.prelim_result}, tx_hash={submit_result.tx_hash})"
+        )
+        return exchange_order_id
+
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         """
         Execute order cancellation using the worker pools.
@@ -3170,14 +3226,7 @@ class XrplExchange(ExchangePyBase):
 
     def get_token_symbol_from_all_markets(self, code: str, issuer: str) -> Optional[str]:
         all_markets = self._make_xrpl_trading_pairs_request()
-        # Markets declaring a trading_pair_symbol are consulted first. That alias is an
-        # explicit naming decision, so it keeps precedence over the code-derived fallback
-        # and every lookup that resolved before still resolves to the same symbol. sorted()
-        # is stable, so markets keep their relative order within each group.
-        ordered_markets = sorted(
-            all_markets.items(), key=lambda item: item[1].trading_pair_symbol is None
-        )
-        for market_name, market in ordered_markets:
+        for market_name, market in all_markets.items():
             token_symbol = market.get_token_symbol(code, issuer)
 
             if token_symbol is not None:
