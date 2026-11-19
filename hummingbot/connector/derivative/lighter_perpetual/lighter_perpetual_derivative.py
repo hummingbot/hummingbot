@@ -1,4 +1,5 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -83,6 +84,10 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self._markets_by_exchange_symbol = {}
         self._tx_lock = asyncio.Lock()
         self._account_ready_lock = asyncio.Lock()
+        # Whether this account has an unexpired ApproveIntegrator record for the Foundation.
+        # Starts False so orders never carry an unapproved integrator (Lighter rejects those
+        # with error 21149); refreshed from the account snapshot on every balance poll.
+        self._integrator_approved = False
         # Single-flight task for WS-triggered balance refresh: Lighter's account_all_assets
         # event lacks `available_balance`, so we use the event as a trigger to refresh from REST.
         self._balance_refresh_task: Optional[asyncio.Task] = None
@@ -281,6 +286,47 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_lost_orders_status(self):
         await self._update_lost_orders()
 
+    def _update_integrator_approval(self, account: Dict[str, Any]):
+        # Lighter only accepts an order naming an integrator once the trading account has
+        # authorised it with an ApproveIntegrator transaction (which is signed with the
+        # user's L1 key, so the connector cannot perform it). Read the approval straight off
+        # the account snapshot the balance poll already fetches, so attribution switches on
+        # by itself for accounts that have approved the Foundation, and stays off otherwise.
+        approvals = account.get("approved_integrators") or []
+        now_ms = time.time() * 1000
+        self._integrator_approved = any(
+            int(approval.get("account_index", -1)) == CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX
+            and int(approval.get("approval_expiry", 0)) > now_ms
+            for approval in approvals
+        )
+
+    @staticmethod
+    def _is_integrator_not_approved_error(error: Any) -> bool:
+        return CONSTANTS.INTEGRATOR_NOT_APPROVED_MESSAGE in str(error)
+
+    def _integrator_order_params(self) -> Dict[str, int]:
+        # Credit the Hummingbot Foundation's integrator account for volume attribution
+        # (Lighter's analogue of a builder code). Lighter exposes no address->index lookup
+        # for integrators, so the account index is configured directly (see constants); the
+        # Foundation's Lighter account must already exist for attribution to be accepted.
+        # These fields are part of the signed order transaction and are handed straight to
+        # the SDK's create_order / create_market_order. Applied on mainnet only, and skipped
+        # while disabled, unconfigured (<= 0), or not approved by this account -- Lighter
+        # rejects orders naming an unapproved integrator (error 21149) even at zero fees.
+        if not CONSTANTS.INTEGRATOR_ENABLED:
+            return {}
+        if self._domain == CONSTANTS.TESTNET_DOMAIN:
+            return {}
+        if CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX <= 0:
+            return {}
+        if not self._integrator_approved:
+            return {}
+        return {
+            "integrator_account_index": CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX,
+            "integrator_taker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_TAKER_FEE,
+            "integrator_maker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_MAKER_FEE,
+        }
+
     async def _place_order(
         self,
         order_id: str,
@@ -304,22 +350,24 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         price_int = decimal_to_exchange_int(price, market.price_decimals)
         client_order_index = int(order_id)
         reduce_only = position_action == PositionAction.CLOSE
+        integrator_params = self._integrator_order_params()
 
-        async with self._tx_lock:
-            if order_type is OrderType.MARKET:
-                _, tx_response, error = await self._signer_client.create_market_order(
-                    market_index=market.market_id,
-                    client_order_index=client_order_index,
-                    base_amount=base_amount,
-                    avg_execution_price=price_int,
-                    is_ask=trade_type is TradeType.SELL,
-                    reduce_only=reduce_only,
-                )
-            else:
+        async def _submit(extra_params: Dict[str, int]):
+            async with self._tx_lock:
+                if order_type is OrderType.MARKET:
+                    return await self._signer_client.create_market_order(
+                        market_index=market.market_id,
+                        client_order_index=client_order_index,
+                        base_amount=base_amount,
+                        avg_execution_price=price_int,
+                        is_ask=trade_type is TradeType.SELL,
+                        reduce_only=reduce_only,
+                        **extra_params,
+                    )
                 tif = self._signer_client.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
                 if order_type is OrderType.LIMIT_MAKER:
                     tif = self._signer_client.ORDER_TIME_IN_FORCE_POST_ONLY
-                _, tx_response, error = await self._signer_client.create_order(
+                return await self._signer_client.create_order(
                     market_index=market.market_id,
                     client_order_index=client_order_index,
                     base_amount=base_amount,
@@ -328,7 +376,19 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     order_type=self._signer_client.ORDER_TYPE_LIMIT,
                     time_in_force=tif,
                     reduce_only=reduce_only,
+                    **extra_params,
                 )
+
+        _, tx_response, error = await _submit(integrator_params)
+        if error is not None and integrator_params and self._is_integrator_not_approved_error(error):
+            # The cached approval is stale (e.g. it expired mid-session). Drop attribution and
+            # resubmit so a stale approval can never take the order down with it.
+            self.logger().warning(
+                "Lighter rejected the order because the Hummingbot integrator is not approved for "
+                "this account; resubmitting without volume attribution."
+            )
+            self._integrator_approved = False
+            _, tx_response, error = await _submit({})
 
         if error is not None:
             raise IOError(f"Error submitting Lighter order {order_id}: {error}")
@@ -458,6 +518,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             account_response, account_index=self._account_index, l1_address=self._l1_address
         )
         self._set_account_index_from_account(account)
+        self._update_integrator_approval(account)
         available = self._safe_decimal(account.get("available_balance", "0"))
 
         for asset in account.get("assets", []):
