@@ -681,8 +681,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.ORDER_STATE[order_msg["orderStatus"]]
         client_order_id = str(order_msg["orderLinkId"])
+        order_status = CONSTANTS.ORDER_STATE.get(order_msg["orderStatus"])
+        if order_status is None:
+            # A status this connector does not know must not take the whole user stream
+            # listener down with it: every later fill and cancel would go unseen (hummingbot-api#203).
+            self.logger().warning(
+                f"Ignoring order event with unknown status '{order_msg['orderStatus']}' "
+                f"for order {client_order_id}."
+            )
+            return
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
