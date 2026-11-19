@@ -153,7 +153,7 @@ class MQTTCommands:
         try:
             if self._hb_app.strategy_name is None and msg.script is None:
                 raise Exception('Strategy check: Please import or create a strategy.')
-            if self._hb_app.strategy is not None:
+            if self._hb_app.trading_core.strategy is not None:
                 raise Exception('The bot is already running - please run "stop" first')
             if msg.async_backend:
                 self._hb_app.start(
@@ -283,7 +283,7 @@ class MQTTCommands:
         response = StatusCommandMessage.Response()
         timeout = 30  # seconds
         try:
-            if self._hb_app.strategy is None:
+            if self._hb_app.trading_core.strategy is None:
                 response.status = MQTT_STATUS_CODE.ERROR
                 response.msg = 'No strategy is currently running!'
                 return response
