@@ -41,7 +41,7 @@ no_restart_pmm_keys = ["order_amount",
                        "moving_price_band_enabled",
                        "price_ceiling_pct",
                        "price_floor_pct",
-                       "price_band_refresh_time"
+                       "price_band_refresh_time",
                        "order_optimization_enabled",
                        "bid_order_optimization_depth",
                        "ask_order_optimization_depth"

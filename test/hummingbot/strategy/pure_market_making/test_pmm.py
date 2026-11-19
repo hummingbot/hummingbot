@@ -1070,6 +1070,17 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("96"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)
 
+    def test_config_price_band_refresh_time_and_order_optimization_on_the_fly(self):
+        strategy = self.one_level_strategy
+        self.assertEqual(86400, strategy.price_band_refresh_time)
+        self.assertFalse(strategy.order_optimization_enabled)
+
+        self.assertTrue(ConfigCommand.update_running_mm(strategy, "price_band_refresh_time", 60))
+        self.assertTrue(ConfigCommand.update_running_mm(strategy, "order_optimization_enabled", True))
+
+        self.assertEqual(60, strategy.price_band_refresh_time)
+        self.assertTrue(strategy.order_optimization_enabled)
+
     def test_order_override(self):
         strategy = self.order_override_strategy
         self.clock.add_iterator(strategy)
