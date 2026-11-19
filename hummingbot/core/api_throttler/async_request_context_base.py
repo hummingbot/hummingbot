@@ -3,7 +3,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 from hummingbot.logger.logger import HummingbotLogger
@@ -34,6 +34,7 @@ class AsyncRequestContextBase(ABC):
                  lock: asyncio.Lock,
                  safety_margin_pct: float,
                  retry_interval: float = 0.1,
+                 resets: Optional[Dict[str, float]] = None,
                  ):
         """
         Asynchronous context associated with each API request.
@@ -42,6 +43,8 @@ class AsyncRequestContextBase(ABC):
         :param related_limits: List of linked rate limits with its corresponding weight associated with this API Request
         :param lock: A shared asyncio.Lock used between all instances of APIRequestContextBase
         :param retry_interval: Time between each limit check
+        :param resets: Shared map of limit_id to the time it can be used again. Filled in when
+            the exchange tells us we are sending too many requests (429)
         """
         self._task_logs: List[TaskLog] = task_logs
         self._rate_limit: RateLimit = rate_limit
@@ -49,6 +52,7 @@ class AsyncRequestContextBase(ABC):
         self._lock: asyncio.Lock = lock
         self._safety_margin_pct: float = safety_margin_pct
         self._retry_interval: float = retry_interval
+        self._resets: Dict[str, float] = resets if resets is not None else {}
 
     def flush(self):
         """
