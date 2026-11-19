@@ -3,8 +3,8 @@ revision = 5
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'linux'",
-    "python_full_version < '3.13' and sys_platform == 'linux'",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and sys_platform == 'linux'",
     "python_full_version < '3.13' and sys_platform == 'darwin'",
 ]
 supported-markers = [
@@ -1305,7 +1305,7 @@ http2 = [
 
 [[package]]
 name = "hummingbot"
-version = "20260922"
+version = "20261118"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },

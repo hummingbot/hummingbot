@@ -1,6 +1,6 @@
 [project]
 name = "hummingbot"
-version = "20260922"
+version = "20261118"
 description = "Hummingbot"
 readme = "README.md"
 license = "Apache-2.0"

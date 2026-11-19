@@ -406,6 +406,60 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(194, msg.trade_id)
 
+    async def test_parse_trade_message_crafted_payload_is_not_executed(self):
+        malicious_message = {
+            'm': 3,
+            'i': 10,
+            'n': CONSTANTS.WS_TRADE_RESPONSE,
+            'o': "__import__('os').system('echo pwned')",
+        }
+        message_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(json.JSONDecodeError):
+            await self.data_source._parse_trade_message(malicious_message, message_queue)
+
+        self.assertTrue(message_queue.empty())
+
+    async def test_parse_trade_message_ignores_non_matching_message_type(self):
+        non_matching_message = {
+            'm': 3,
+            'i': 10,
+            'n': 'SomeOtherEvent',
+            'o': "__import__('os').system('echo pwned')",
+        }
+        message_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_trade_message(non_matching_message, message_queue)
+
+        self.assertTrue(message_queue.empty())
+
+    async def test_parse_order_book_diff_message_crafted_payload_is_not_executed(self):
+        malicious_message = {
+            'm': 3,
+            'i': 8,
+            'n': CONSTANTS.WS_ORDER_BOOK_RESPONSE,
+            'o': "__import__('os').system('echo pwned')",
+        }
+        message_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(json.JSONDecodeError):
+            await self.data_source._parse_order_book_diff_message(malicious_message, message_queue)
+
+        self.assertTrue(message_queue.empty())
+
+    async def test_parse_order_book_diff_message_ignores_non_matching_message_type(self):
+        non_matching_message = {
+            'm': 3,
+            'i': 8,
+            'n': 'SomeOtherEvent',
+            'o': "__import__('os').system('echo pwned')",
+        }
+        message_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(non_matching_message, message_queue)
+
+        self.assertTrue(message_queue.empty())
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
