@@ -78,17 +78,18 @@ class MexcPerpetualCandles(CandlesBase):
                                  limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         """
         For API documentation, please refer to:
-        https://mexcdevelop.github.io/apidocs/spot_v3_en/#kline-candlestick-data
+        https://mexcdevelop.github.io/apidocs/contract_v1_en/#k-line-data
 
-        startTime and endTime must be used at the same time.
+        The contract endpoint takes start and end in seconds. startTime/endTime (the spot API names) are ignored
+        and the latest candles come back instead of the requested window.
         """
         params = {
             "interval": CONSTANTS.INTERVALS[self.interval],
         }
         if start_time:
-            params["startTime"] = start_time * 1000
+            params["start"] = start_time
         if end_time:
-            params["endTime"] = end_time * 1000
+            params["end"] = end_time
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
