@@ -446,17 +446,25 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
+        price = self.entry_price
+        if self.config.triple_barrier_config.open_order_type.is_limit_type() and not self.is_valid_price(price):
+            self.logger().warning(
+                f"Executor ID: {self.config.id} - Cannot place {self.config.triple_barrier_config.open_order_type.name} open order with invalid price {price}. Skipping."
+            )
+            return
+
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             order_type=self.config.triple_barrier_config.open_order_type,
             amount=self.config.amount,
-            price=self.entry_price,
+            price=price,
             side=self.config.side,
             position_action=PositionAction.OPEN,
         )
-        self._open_order = TrackedOrder(order_id=order_id)
-        self.logger().debug(f"Executor ID: {self.config.id} - Placing open order {order_id}")
+        if order_id:
+            self._open_order = TrackedOrder(order_id=order_id)
+            self.logger().debug(f"Executor ID: {self.config.id} - Placing open order {order_id}")
 
     def control_barriers(self):
         """

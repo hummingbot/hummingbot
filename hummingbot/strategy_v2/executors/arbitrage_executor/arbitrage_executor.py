@@ -173,7 +173,7 @@ class ArbitrageExecutor(ExecutorBase):
         self.place_sell_arbitrage_order()
 
     def place_buy_arbitrage_order(self):
-        self.buy_order.order_id = self.place_order(
+        order_id = self.place_order(
             connector_name=self.buying_market.connector_name,
             trading_pair=self.buying_market.trading_pair,
             order_type=OrderType.MARKET,
@@ -181,9 +181,13 @@ class ArbitrageExecutor(ExecutorBase):
             amount=self.order_amount,
             price=self._last_buy_price,
         )
+        if order_id:
+            self.buy_order.order_id = order_id
+        else:
+            self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place buy arbitrage order with invalid price or amount.")
 
     def place_sell_arbitrage_order(self):
-        self.sell_order.order_id = self.place_order(
+        order_id = self.place_order(
             connector_name=self.selling_market.connector_name,
             trading_pair=self.selling_market.trading_pair,
             order_type=OrderType.MARKET,
@@ -191,6 +195,10 @@ class ArbitrageExecutor(ExecutorBase):
             amount=self.order_amount,
             price=self._last_sell_price,
         )
+        if order_id:
+            self.sell_order.order_id = order_id
+        else:
+            self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place sell arbitrage order with invalid price or amount.")
 
     async def update_tx_cost(self):
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)

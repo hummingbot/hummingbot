@@ -199,8 +199,11 @@ class XEMMExecutor(ExecutorBase):
             side=self.maker_order_side,
             amount=self.config.order_amount,
             price=self._maker_target_price)
-        self.maker_order = TrackedOrder(order_id=order_id)
-        self.logger().info(f"Created maker order {order_id} at price {self._maker_target_price}.")
+        if order_id:
+            self.maker_order = TrackedOrder(order_id=order_id)
+            self.logger().info(f"Created maker order {order_id} at price {self._maker_target_price}.")
+        else:
+            self.logger().warning(f"Failed to place maker order at price {self._maker_target_price}.")
 
     async def control_shutdown_process(self):
         if self.maker_order.is_done and self.taker_order.is_done:
@@ -266,7 +269,10 @@ class XEMMExecutor(ExecutorBase):
             order_type=OrderType.MARKET,
             side=self.taker_order_side,
             amount=self.config.order_amount)
-        self.taker_order = TrackedOrder(order_id=taker_order_id)
+        if taker_order_id:
+            self.taker_order = TrackedOrder(order_id=taker_order_id)
+        else:
+            self.logger().warning(f"Executor ID: {self.config.id} - Refusing to place taker order with invalid price or amount.")
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         if self.maker_order and self.maker_order.order_id == event.order_id:

@@ -1,7 +1,8 @@
 import asyncio
-from decimal import Decimal
+import math
+from decimal import Decimal, InvalidOperation
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
@@ -348,6 +349,27 @@ class ExecutorBase(RunnableBase):
         """
         return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates)
 
+    @staticmethod
+    def is_valid_price(price: Any) -> bool:
+        """
+        Deterministic fail-safe guard to ensure price/amount is positive, finite, and not NaN.
+        """
+        if price is None:
+            return False
+        if isinstance(price, float):
+            if math.isnan(price) or not math.isfinite(price):
+                return False
+        if isinstance(price, Decimal):
+            if price.is_nan() or not price.is_finite():
+                return False
+        try:
+            d_price = price if isinstance(price, Decimal) else Decimal(str(price))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        if d_price.is_nan() or not d_price.is_finite() or d_price <= Decimal("0"):
+            return False
+        return True
+
     def place_order(self,
                     connector_name: str,
                     trading_pair: str,
@@ -369,6 +391,14 @@ class ExecutorBase(RunnableBase):
         :param price: The price for the order.
         :return: The result of the order placement.
         """
+        if not self.is_valid_price(amount):
+            self.logger().warning(f"Refusing to place {order_type.name} order with invalid amount: {amount}.")
+            return None
+
+        if order_type.is_limit_type() and not self.is_valid_price(price):
+            self.logger().warning(f"Refusing to place {order_type.name} order with invalid price: {price}.")
+            return None
+
         if side == TradeType.BUY:
             return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action)
         else:
