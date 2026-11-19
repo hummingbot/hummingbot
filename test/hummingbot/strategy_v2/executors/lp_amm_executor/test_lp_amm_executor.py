@@ -469,6 +469,176 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(executor.lp_position_state.position_opened)
         self.assertEqual(executor._current_retries, 1)
 
+    # ---- SWAPPING / close-out swap (keep_position=False) -------------------
+
+    async def test_close_position_early_stop_transitions_to_swapping(self):
+        """A non-hold close with leftover single-sided exposure routes to
+        SWAPPING instead of completing with the exposure unbalanced."""
+        executor = self.get_executor()
+        executor.lp_position_state.position_opened = True
+        executor.lp_position_state.position_nft_address = "nft1"
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+        executor.close_type = CloseType.EARLY_STOP
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.5, quote=100.0,
+            positions=[make_position_detail("nft1", 1.5, 100.0)],
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.SWAPPING)
+        self.assertFalse(executor.lp_position_state.position_opened)
+
+    async def test_execute_closeout_swap_sell_excess_base(self):
+        """More base came out than went in: places a SELL for the excess."""
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("1.5")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.place_order = MagicMock(return_value="swap-order-123")
+
+        await executor._execute_closeout_swap()
+
+        connector.place_order.assert_called_once()
+        call_kwargs = connector.place_order.call_args[1]
+        self.assertFalse(call_kwargs["is_buy"])  # SELL excess base
+        self.assertEqual(call_kwargs["amount"], Decimal("0.5"))
+        self.assertEqual(call_kwargs["dex_name"], "jupiter/router")
+        self.assertIsNotNone(executor.lp_position_state.active_swap_order)
+
+    async def test_execute_closeout_swap_buy_back_base(self):
+        """Less base came out than went in: places a BUY to restore it."""
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("0.5")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.place_order = MagicMock(return_value="swap-order-123")
+
+        await executor._execute_closeout_swap()
+
+        connector.place_order.assert_called_once()
+        call_kwargs = connector.place_order.call_args[1]
+        self.assertTrue(call_kwargs["is_buy"])  # BUY back the shortfall
+        self.assertEqual(call_kwargs["amount"], Decimal("0.5"))
+        self.assertIsNotNone(executor.lp_position_state.active_swap_order)
+
+    async def test_execute_closeout_swap_order_filled_completes(self):
+        """The placed swap order filling ends the executor as COMPLETE."""
+        from hummingbot.core.data_type.in_flight_order import OrderState
+
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-order-123")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        mock_order = MagicMock()
+        mock_order.current_state = OrderState.FILLED
+        mock_order.client_order_id = "swap-order-123"
+        connector.get_order = MagicMock(return_value=mock_order)
+
+        await executor._execute_closeout_swap()
+
+        self.assertIsNone(executor.lp_position_state.active_swap_order)
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+
+    async def test_execute_closeout_swap_no_swap_needed_completes(self):
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("1.0")  # balanced already
+
+        await executor._execute_closeout_swap()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+
+    async def test_execute_closeout_swap_failure_retries_then_holds(self):
+        """Each placement failure burns one of MAX_CLOSEOUT_SWAP_ATTEMPTS; on
+        exhaustion the executor terminates POSITION_HOLD with the withdrawn
+        tokens instead of reporting FAILED with hidden exposure."""
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.place_order = MagicMock(side_effect=Exception("swap failed"))
+
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS - 1):
+            await executor._execute_closeout_swap()
+            self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.SWAPPING)
+
+        await executor._execute_closeout_swap()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
+        self.assertEqual(len(executor._held_position_orders), 1)
+
+    async def test_execute_closeout_swap_no_swap_provider_holds(self):
+        """No swap_provider configured and no network default available: hold
+        rather than silently skip the unbalanced exposure."""
+        executor = self.get_executor()  # no swap_provider configured
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+
+        with patch(
+            "hummingbot.strategy_v2.executors.lp_amm_executor.lp_amm_executor.GatewayHttpClient"
+        ) as mock_gateway_client:
+            mock_gateway_client.get_instance.return_value.get_default_swap_provider = AsyncMock(return_value=None)
+            for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS):
+                await executor._execute_closeout_swap()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_keep_position_true_skips_closeout_swap_entirely(self):
+        """keep_position=True never routes through SWAPPING, even with leftover
+        single-sided exposure: the net change is kept and recorded as a spot
+        position instead of being swapped away."""
+        executor = self.get_executor(self.get_default_config(keep_position=True))
+        executor.lp_position_state.position_opened = True
+        executor.lp_position_state.position_nft_address = "nft1"
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+        executor.close_type = CloseType.POSITION_HOLD
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.5, quote=100.0,
+            positions=[make_position_detail("nft1", 1.5, 100.0)],
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
+        connector.place_order = MagicMock(side_effect=AssertionError("must not be called"))
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+        connector.place_order.assert_not_called()
+        held = executor.get_custom_info()["held_position_orders"]
+        self.assertEqual(len(held), 1)
+        self.assertTrue(held[0]["lp_net_trade"])
+
     # ---- NFT address recovery retries --------------------------------------
 
     async def test_create_position_retries_position_info_fetch(self):

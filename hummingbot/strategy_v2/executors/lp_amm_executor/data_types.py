@@ -30,6 +30,7 @@ class LPAmmExecutorStates(Enum):
     OPENING = "OPENING"            # add_liquidity submitted, waiting
     ACTIVE = "ACTIVE"              # Position open, earning/losing against the no-fee curve
     CLOSING = "CLOSING"            # remove_liquidity submitted, waiting
+    SWAPPING = "SWAPPING"          # Close-out swap in progress (keep_position=False)
     COMPLETE = "COMPLETE"          # Position closed permanently
     FAILED = "FAILED"              # Max retries reached, manual intervention required
 
@@ -53,6 +54,13 @@ class LPAmmExecutorConfig(ExecutorConfigBase):
 
     connector_name: str
     lp_provider: str
+
+    # Swap provider (optional) - format: "dex/trading_type", e.g. "jupiter/router".
+    # Used for the close-out swap when keep_position=False, to swap any leftover
+    # single-sided token balance back to the initial deposit's base/quote target
+    # after withdrawal. If None, uses the network's default swap provider.
+    swap_provider: Optional[str] = None
+
     pool_address: str
     trading_pair: str
 
@@ -100,6 +108,10 @@ class LPAmmExecutorConfig(ExecutorConfigBase):
     def validate_lp_amm_position(self):
         require_non_empty("connector_name", self.connector_name)
         require_provider("lp_provider", self.lp_provider)
+        # swap_provider carries a trading type too, so a bare name is rejected here
+        # instead of surfacing as a 400 mid close-out swap, with the position's
+        # funds exposed.
+        require_provider("swap_provider", self.swap_provider, required=False)
         require_non_empty("pool_address", self.pool_address)
         require_trading_pair("trading_pair", self.trading_pair)
         require_non_negative("base_amount", self.base_amount)
@@ -166,6 +178,7 @@ class LPAmmExecutorState(BaseModel):
 
     active_open_order: Optional[TrackedOrder] = None
     active_close_order: Optional[TrackedOrder] = None
+    active_swap_order: Optional[TrackedOrder] = None  # Close-out swap order
 
     state: LPAmmExecutorStates = LPAmmExecutorStates.NOT_ACTIVE
 
@@ -250,7 +263,10 @@ class LPAmmExecutorState(BaseModel):
         a full-range position provides liquidity at every price, so there is
         no range check here.
         """
-        if self.state in (LPAmmExecutorStates.COMPLETE, LPAmmExecutorStates.CLOSING, LPAmmExecutorStates.FAILED):
+        if self.state in (
+            LPAmmExecutorStates.COMPLETE, LPAmmExecutorStates.CLOSING,
+            LPAmmExecutorStates.SWAPPING, LPAmmExecutorStates.FAILED,
+        ):
             return
 
         if self.state == LPAmmExecutorStates.OPENING and not self.position_opened:

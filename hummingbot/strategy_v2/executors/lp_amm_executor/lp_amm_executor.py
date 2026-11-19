@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from hummingbot.connector.gateway.gateway import AMMPoolInfo
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
@@ -85,6 +86,10 @@ class LPAmmExecutor(ExecutorBase):
         # early_stop() arrived while the create was in flight: let the create resolve,
         # then route straight to CLOSING.
         self._close_after_open: bool = False
+        # Close-out swap attempts (each failure re-places with a fresh quote), same
+        # contract as LPExecutor's.
+        self._swap_not_found_count: int = 0
+        self._swap_failure_count: int = 0
         self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider)
 
     def _validate_and_normalize_connector(self, connector_name: str) -> Optional[str]:
@@ -103,6 +108,46 @@ class LPAmmExecutor(ExecutorBase):
             f"Using LP provider: {self.config.lp_provider} "
             f"(dex={self.lp_dex_name}, type={self.lp_trading_type})"
         )
+
+        # Resolve swap_provider up front when the config already expects to unwind,
+        # so a missing provider surfaces at start instead of mid-close-out.
+        if not self.config.keep_position:
+            await self._resolve_swap_provider()
+
+    async def _resolve_swap_provider(self) -> bool:
+        """Fill in swap_provider from the network default if it is not set.
+
+        Also called lazily from the close-out path: early_stop(keep_position=False)
+        can unwind an executor whose config said keep_position=True, which never
+        resolved a provider at start.
+
+        Returns True if a provider is available.
+        """
+        if self.config.swap_provider:
+            return True
+
+        gateway = GatewayHttpClient.get_instance()
+        default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
+        if default_provider:
+            # The network default comes straight from Gateway's config, which is not
+            # covered by LPAmmExecutorConfig's validator — reject an untyped one here
+            # instead of letting it become a 400 mid close-out swap.
+            if "/" not in default_provider:
+                self.logger().error(
+                    f"Network default swap provider '{default_provider}' for "
+                    f"{self.config.connector_name} is not in 'name/type' form "
+                    "(e.g. 'jupiter/router'). Fix swapProvider in the Gateway network config."
+                )
+                return False
+            self.config = self.config.model_copy(update={'swap_provider': default_provider})
+            self.logger().info(f"Using network default swap provider: {default_provider}")
+            return True
+
+        self.logger().warning(
+            f"No swap provider found for {self.config.connector_name}. "
+            "Close-out swaps will not be available."
+        )
+        return False
 
     async def validate_sufficient_balance(self):
         # LP connector handles balance validation during add_liquidity.
@@ -130,6 +175,10 @@ class LPAmmExecutor(ExecutorBase):
 
             case LPAmmExecutorStates.CLOSING:
                 await self._close_position()
+
+            case LPAmmExecutorStates.SWAPPING:
+                # Close-out swap in progress (keep_position=False)
+                await self._execute_closeout_swap()
 
             case LPAmmExecutorStates.FAILED:
                 if self.close_type is None:
@@ -493,7 +542,8 @@ class LPAmmExecutor(ExecutorBase):
 
     def _handle_position_gone(self):
         """The position is definitively absent on-chain: a prior close attempt
-        landed, or it was closed externally."""
+        landed, or it was closed externally. EARLY_STOP still owes the close-out
+        swap, since the withdrawn tokens landed in the wallet either way."""
         current_price = self._current_price if self._current_price else Decimal("0")
         if self.close_type == CloseType.POSITION_HOLD:
             self._store_net_trade_from_withdrawal(current_price)
@@ -501,6 +551,16 @@ class LPAmmExecutor(ExecutorBase):
         self.lp_position_state.active_close_order = None
         self.lp_position_state.position_opened = False
         self.lp_position_state.position_nft_address = None
+
+        if self.close_type == CloseType.EARLY_STOP:
+            base_diff = self._calculate_net_base_difference()
+            if abs(base_diff) > Decimal("0.000001"):
+                self.logger().info(
+                    f"Close-out swap needed after already-closed reconcile: base_diff={base_diff:.6f}"
+                )
+                self._reset_slippage()
+                self.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+                return
         self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
 
     async def _close_position(self):
@@ -626,7 +686,27 @@ class LPAmmExecutor(ExecutorBase):
 
             self.lp_position_state.position_opened = False
             self.lp_position_state.position_nft_address = None
-            self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+
+            # Not holding the net means swapping any leftover single-sided balance
+            # back to the initial deposit's target. Stated positively, like
+            # LPExecutor's, so an unexpected close_type skips the swap rather than
+            # firing one nobody asked for.
+            if self.close_type == CloseType.EARLY_STOP:
+                base_diff = self._calculate_net_base_difference()
+                if abs(base_diff) > Decimal("0.000001"):
+                    self.logger().info(
+                        f"Close-out swap needed: base_diff={base_diff:.6f} "
+                        f"(received={self.lp_position_state.base_amount:.6f}, "
+                        f"initial={self.lp_position_state.initial_base_amount:.6f})"
+                    )
+                    # A third phase, and a third chance to start tight.
+                    self._reset_slippage()
+                    self.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+                else:
+                    self.logger().info("No close-out swap needed (base amounts match)")
+                    self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+            else:
+                self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
 
         except Exception as e:
             self._handle_close_failure(e)
@@ -653,6 +733,142 @@ class LPAmmExecutor(ExecutorBase):
             f"Position close attempt failed ({self._current_retries}/{self._max_retries} retries used): "
             f"{error}. Rebuilding with fresh state in {backoff:.0f}s."
         )
+
+    def _calculate_net_base_difference(self) -> Decimal:
+        """Net base token difference between what this withdrawal returned and what
+        was initially deposited.
+
+        Swapping base back to zero this difference leaves the executor
+        position-neutral: quote moves opposite to base through the swap itself, so
+        fixing the base side also fixes the quote side. base_amount already carries
+        fee growth for a full-range AMM (fees accrue into the reserves, not a
+        separate ledger - see LPAmmExecutorState.fees_earned_quote), so unlike
+        LPExecutor's version there is no separate fee term to add back in.
+
+        Returns:
+            Positive: more base than initially deposited (need to SELL)
+            Negative: less base than initially deposited (need to BUY)
+            Zero: position is balanced
+        """
+        return self.lp_position_state.base_amount - self.lp_position_state.initial_base_amount
+
+    async def _execute_closeout_swap(self):
+        """Execute the close-out swap back to the initial deposit's base/quote
+        balance when keep_position=False. Same SWAPPING contract as LPExecutor's.
+        """
+        connector = self.connectors.get(self.config.connector_name)
+        if connector is None:
+            self.logger().error(f"Connector {self.config.connector_name} not found")
+            self._handle_swap_failure(ValueError(f"Connector {self.config.connector_name} not found"))
+            return
+
+        if not await self._resolve_swap_provider():
+            self.logger().error("No swap_provider configured for close-out swap")
+            self._handle_swap_failure(ValueError("No swap_provider configured"))
+            return
+
+        # Check if we already have an active swap order
+        if self.lp_position_state.active_swap_order is not None:
+            order = connector.get_order(self.lp_position_state.active_swap_order.order_id)
+            if order is None:
+                # Order not found - might have completed or failed
+                self._swap_not_found_count += 1
+                if self._swap_not_found_count >= 3:
+                    self.logger().warning(
+                        f"Swap order {self.lp_position_state.active_swap_order.order_id} not found after "
+                        f"{self._swap_not_found_count} checks. Assuming completed."
+                    )
+                    self.lp_position_state.active_swap_order = None
+                    self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+                return
+
+            from hummingbot.core.data_type.in_flight_order import OrderState
+            if order.current_state == OrderState.FILLED:
+                self.logger().info(f"Close-out swap completed: {order.client_order_id}")
+                self.lp_position_state.active_swap_order = None
+                self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+            elif order.current_state == OrderState.FAILED:
+                # Ask the connector what Gateway said: the order tracker records
+                # FAILED with no reason, and the slippage ramp cannot act on this leg
+                # without knowing whether the failure was a slippage failure at all.
+                reason = connector.order_failure_reason(order.client_order_id) or "Swap order failed"
+                self.logger().error(f"Close-out swap failed: {order.client_order_id}: {reason}")
+                self._handle_swap_failure(ValueError(reason))
+            elif order.current_state == OrderState.CANCELED:
+                self.logger().warning(f"Close-out swap cancelled: {order.client_order_id}")
+                self._handle_swap_failure(ValueError("Swap order cancelled"))
+            # Otherwise still pending - wait for next tick
+            return
+
+        base_diff = self._calculate_net_base_difference()
+
+        if abs(base_diff) < Decimal("0.000001"):
+            # No swap needed
+            self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+            return
+
+        # base_diff > 0: received more base than deposited -> SELL excess base
+        # base_diff < 0: received less base than deposited -> BUY base to restore
+        is_buy = base_diff < 0
+        amount = abs(base_diff)
+        side = TradeType.BUY if is_buy else TradeType.SELL
+
+        self.logger().info(
+            f"Executing close-out swap: {side.name} {amount:.6f} base (diff={base_diff:.6f})"
+        )
+
+        try:
+            # The executor's own ramped tolerance, so the close-out swap starts as
+            # tight as everything else this executor does and widens the same way.
+            order_id = connector.place_order(
+                is_buy=is_buy,
+                trading_pair=self.config.trading_pair,
+                amount=amount,
+                price=Decimal("0"),  # Market order
+                dex_name=self.config.swap_provider,
+                slippage_pct=float(self._slippage_pct),
+                max_retries=self._max_retries,
+            )
+            self.lp_position_state.active_swap_order = TrackedOrder(order_id=order_id)
+            self._swap_not_found_count = 0
+            self.logger().info(f"Close-out swap order placed: {order_id}")
+
+        except Exception as e:
+            self.logger().error(f"Failed to place close-out swap: {e}")
+            self._handle_swap_failure(e)
+
+    # Close-out swap attempts before the executor stops fighting the market and
+    # holds the withdrawn tokens instead (each attempt re-quotes at market).
+    MAX_CLOSEOUT_SWAP_ATTEMPTS = 3
+
+    def _handle_swap_failure(self, error: Exception):
+        """Handle close-out swap failure.
+
+        Bounded retries with a fresh quote each attempt; on exhaustion the
+        executor terminates POSITION_HOLD carrying the withdrawn tokens instead of
+        reporting FAILED with hidden exposure.
+        """
+        self.lp_position_state.active_swap_order = None
+        self._swap_failure_count += 1
+        # Widen for the next quote when the market moved further than the tolerance.
+        self._widen_slippage(error)
+
+        if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
+            self.logger().error(
+                f"Close-out swap failed (attempt {self._swap_failure_count}/"
+                f"{self.MAX_CLOSEOUT_SWAP_ATTEMPTS}): {error}. Retrying with a fresh quote."
+            )
+            return  # stay in SWAPPING; next tick re-places at market
+
+        self.logger().error(
+            f"Close-out swap failed {self._swap_failure_count} times: {error}. "
+            "Holding the withdrawn tokens instead of reporting FAILED with hidden exposure."
+        )
+        self._hold_reason = "closeout_swap_failed"
+        self.close_type = CloseType.POSITION_HOLD
+        current_price = self._current_price if self._current_price else Decimal("0")
+        self._store_net_trade_from_withdrawal(current_price)
+        self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
 
     def evaluate_max_retries(self):
         """Terminate when the close-retry budget is exhausted.
