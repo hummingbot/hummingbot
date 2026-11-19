@@ -191,6 +191,7 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | [PancakeSwap](https://hummingbot.org/exchanges/gateway/pancakeswap/) | AMM DEX | AMM | `pancakeswap` | - |
 | [Raydium](https://hummingbot.org/exchanges/gateway/raydium/) | AMM DEX | AMM, CLMM | `raydium` | - |
 | [Titan](https://hummingbot.org/exchanges/gateway/jupiter/#other-solana-routers) | AMM DEX | Router | `titan` | - |
+| [TRUE](https://docs.truefinance.ai/en/docs/bot-api) | CLOB DEX | Perpetual | `true_perpetual` | - |
 | [Uniswap](https://hummingbot.org/exchanges/gateway/uniswap/) | AMM DEX | Router, AMM, CLMM | `uniswap` | - |
 
 ## Other Hummingbot Repos
