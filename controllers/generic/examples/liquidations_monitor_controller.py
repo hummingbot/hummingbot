@@ -15,6 +15,7 @@ class LiquidationsMonitorControllerConfig(ControllerConfigBase):
     trading_pair: str = Field(default="BTC-USDT")
     liquidations_trading_pairs: list = Field(default=["BTC-USDT", "1000PEPE-USDT", "1000BONK-USDT", "HBAR-USDT"])
     max_retention_seconds: int = Field(default=10)
+    liquidations_connector: str = Field(default="binance", description="liquidations source: binance or agentfeed")
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
         markets[self.exchange] = markets.get(self.exchange, set()) | {self.trading_pair}
@@ -28,7 +29,7 @@ class LiquidationsMonitorController(ControllerBase):
 
         # Initialize liquidations feed
         self.binance_liquidations_config = LiquidationsConfig(
-            connector="binance",  # the source for liquidation data (currently only binance is supported)
+            connector=self.config.liquidations_connector,  # the source for liquidation data: binance (default) or agentfeed
             max_retention_seconds=self.config.max_retention_seconds,  # how many seconds the data should be stored
             trading_pairs=self.config.liquidations_trading_pairs
         )
