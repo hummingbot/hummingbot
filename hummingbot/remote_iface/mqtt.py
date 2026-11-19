@@ -566,6 +566,9 @@ class MQTTGateway:
 
         self._heartbeat_interval: float = 10.0
         self._reconnect_interval: float = 5.0
+        # Throttle repeated disconnect warnings (#8012): only the first of a
+        # streak of consecutive reconnect failures is logged at warning level.
+        self._disconnect_warning_logged: bool = False
 
         # aiomqtt connection state (all MQTT I/O lives on hb_app.ev_loop).
         self._client: Optional[aiomqtt.Client] = None
@@ -630,6 +633,7 @@ class MQTTGateway:
                 async with self._create_client() as client:
                     self._client = client
                     self._connected = True
+                    self._disconnect_warning_logged = False
                     for topic, qos in self._desired_subscriptions().items():
                         await client.subscribe(topic, qos=qos)
                     self._hb_app.logger().debug(
@@ -649,9 +653,17 @@ class MQTTGateway:
             except asyncio.CancelledError:
                 raise
             except aiomqtt.MqttError as e:
-                self._hb_app.logger().warning(
-                    f'MQTT bridge disconnected: {e}. '
-                    f'Reconnecting in {self._reconnect_interval}s.')
+                if self._disconnect_warning_logged:
+                    # Still down after the first warning: demote repeats to
+                    # debug so a dead broker doesn't spam the logs (#8012).
+                    self._hb_app.logger().debug(
+                        f'MQTT bridge still disconnected: {e}. '
+                        f'Reconnecting in {self._reconnect_interval}s.')
+                else:
+                    self._hb_app.logger().warning(
+                        f'MQTT bridge disconnected: {e}. '
+                        f'Reconnecting in {self._reconnect_interval}s.')
+                    self._disconnect_warning_logged = True
             except Exception as e:  # pragma: no cover
                 self._hb_app.logger().error(
                     f'MQTT bridge error: {e}. '
