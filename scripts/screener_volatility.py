@@ -2,7 +2,7 @@ import os
 from typing import List
 
 import pandas as pd
-import pandas_ta as ta  # noqa: F401
+from fin_primitives import ta
 from pydantic import Field
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -94,10 +94,10 @@ class VolatilityScreener(StrategyV2Base):
             df["volatility_pct_mean"] = df["volatility_pct"].rolling(self.volatility_interval).mean()
 
             # adding bbands metrics
-            df.ta.bbands(length=self.volatility_interval, append=True)
-            df["bbands_width_pct"] = df[f"BBB_{self.volatility_interval}_2.0_2.0"]
+            df.fp.bbands(length=self.volatility_interval, append=True)
+            df["bbands_width_pct"] = df[f"BBB_{self.volatility_interval}_2.0"]
             df["bbands_width_pct_mean"] = df["bbands_width_pct"].rolling(self.volatility_interval).mean()
-            df["bbands_percentage"] = df[f"BBP_{self.volatility_interval}_2.0_2.0"]
+            df["bbands_percentage"] = df[f"BBP_{self.volatility_interval}_2.0"]
             df["natr"] = ta.natr(df["high"], df["low"], df["close"], length=self.volatility_interval)
             market_metrics[trading_pair_interval] = df.iloc[-1]
         volatility_metrics_df = pd.DataFrame(market_metrics).T
