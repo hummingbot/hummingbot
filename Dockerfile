@@ -9,19 +9,26 @@ RUN apt-get update && \
     apt-get install -y sudo libusb-1.0-0 gcc g++ python3-dev make && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Pinned for reproducible builds (the version uv.lock was written with); bump deliberately.
+COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /usr/local/bin/uv
 
 # Use the image's own system python, not one uv would download: a downloaded standalone
 # interpreter lives under /root (outside what the release stage copies below), and `.venv/bin/python`
 # would symlink to it, breaking once this builder stage is discarded.
+# (This also makes `.python-version` unnecessary here: the base image already is 3.13.)
 ENV UV_PYTHON_PREFERENCE=only-system
+# Precompile .pyc files at install time for faster container start-up
+ENV UV_COMPILE_BYTECODE=1
 
 WORKDIR /home/hummingbot
 
 # Install the dependency venv (uv sync does not build hummingbot itself — see
-# `[tool.uv] package = false` in pyproject.toml)
-COPY pyproject.toml uv.lock* /home/hummingbot/
-RUN uv sync
+# `[tool.uv] package = false` in pyproject.toml). `--locked` fails the build if uv.lock is missing
+# or out of date with pyproject.toml instead of silently re-resolving. `--no-dev --group build`
+# installs the runtime dependencies plus only what `setup.py build_ext` needs (cython, setuptools),
+# keeping test/lint tooling out of the image.
+COPY pyproject.toml uv.lock /home/hummingbot/
+RUN uv sync --locked --no-dev --group build
 
 # Copy remaining files
 COPY bin/ bin/
@@ -37,7 +44,8 @@ COPY README.md .
 SHELL [ "/bin/bash", "-lc" ]
 RUN echo "source /home/hummingbot/.venv/bin/activate" >> ~/.bashrc
 
-RUN uv run python setup.py build_ext --inplace -j 8 && \
+# Call the venv's python directly: `uv run` would first re-sync the default groups, re-adding `dev`.
+RUN .venv/bin/python setup.py build_ext --inplace -j 8 && \
     rm -rf build/ && \
     find . -type f -name "*.cpp" -delete
 

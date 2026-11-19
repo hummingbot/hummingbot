@@ -26,7 +26,9 @@ dependencies = [
     "eth-account>=0.13.0",
     "injective-py==1.14.*",
     "lighter-sdk==1.1.2",
-    "msgpack-python",
+    # NOT "msgpack-python": on PyPI that name is a dead alias frozen at 0.5.6 (2018), whose packb encodes
+    # strings >31 bytes differently and so changes the Hyperliquid action hash (orders carry a 34-char cloid).
+    "msgpack>=1.0",
     "numba>=0.61.2",
     "numpy>=2.2.6",
     "objgraph",
@@ -73,17 +75,22 @@ dydx = [
 ]
 
 [dependency-groups]
+# Exactly what `python setup.py build_ext --inplace` needs on top of the runtime dependencies
+# (numpy is already one). Lets an image build do `uv sync --locked --no-dev --group build`.
+build = [
+    "cython>=3.0.12",
+    "setuptools==80.8.0",
+]
 dev = [
+    {include-group = "build"},
     "autopep8",
     "coverage>=7.2.7",
-    "cython>=3.0.12",
     "diff-cover>=7.7.0",
     "flake8>=6.0.0",
     "pre-commit>=3.3.3",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.16.0",
     "pytest-timeout>=2.1.0",
-    "setuptools==80.8.0",
 ]
 
 [tool.uv]

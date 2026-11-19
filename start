@@ -41,7 +41,7 @@ if [[ ! -f bin/hummingbot_quickstart.py ]]; then
 fi
 
 # Check if the project's venv is activated
-if [[ -z "$VIRTUAL_ENV" || "$(cd "$VIRTUAL_ENV/.." && pwd)" != "$(pwd)" ]]; then
+if [[ -z "$VIRTUAL_ENV" || "$(cd "$VIRTUAL_ENV/.." && pwd -P)" != "$(pwd -P)" ]]; then
     echo "Error: the project's venv is not activated. Run 'source .venv/bin/activate' and try again."
     exit 1
 fi

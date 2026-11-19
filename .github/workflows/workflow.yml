@@ -37,7 +37,12 @@ jobs:
     name: Hummingbot build + stable tests
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
-    runs-on: ubuntu-24.04  # ubuntu-latest (26.04) has no preinstalled Miniconda, so $CONDA is unset
+    runs-on: ubuntu-latest
+    env:
+      # Make `uv sync` / `uv run` fail instead of silently re-locking when uv.lock is out of date with pyproject.toml
+      UV_LOCKED: "1"
+      # Always use uv's own interpreter (from .python-version): a runner's system python may lack the dev headers the Cython build needs
+      UV_PYTHON_PREFERENCE: only-managed
 
     steps:
       - uses: actions/checkout@v6
@@ -55,7 +60,8 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
-      # Check for pyproject.toml/uv.lock changes
+      # Check for pyproject.toml/uv.lock changes. Only uv's cache is stored, not .venv:
+      # a venv embeds the absolute path of its interpreter and does not survive a new runner.
       - name: Cache uv dependencies
         id: uv-dependencies
         uses: actions/cache@v5
@@ -63,9 +69,7 @@ jobs:
           # Increase this value to manually reset cache if pyproject.toml/uv.lock have not changed
           UV_CACHE_NUMBER: 0
         with:
-          path: |
-            .venv
-            ~/.cache/uv
+          path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ env.UV_CACHE_NUMBER }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
 
       # Install environment and Hummingbot

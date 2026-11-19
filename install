@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd $(dirname $0)
+cd "$(dirname "$0")" || exit 1
 
 if ! command -v uv >/dev/null 2>&1; then
     echo "Please install uv first: https://docs.astral.sh/uv/getting-started/installation/"
@@ -36,7 +36,14 @@ uv sync "${UV_EXTRA[@]}"
 # Expose the `hbot` CLI on PATH within the venv.
 ln -sf "$(pwd)/bin/hbot" "$(pwd)/.venv/bin/hbot"
 
-uv run pre-commit install
+# Make `hummingbot` importable from any directory (replaces `conda develop .`).
+# `uv sync` does not remove this file, but it is lost if the venv is recreated -- re-run ./install then.
+SITE_PACKAGES="$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
+if [ -d "$SITE_PACKAGES" ]; then
+    pwd > "$SITE_PACKAGES/hummingbot-dev.pth"
+else
+    echo "Warning: could not locate the venv's site-packages; 'import hummingbot' will only work from the repo root."
+fi
 
 # Check for build-essential (only relevant for Debian-based systems)
 if [ "$(uname)" = "Linux" ]; then
@@ -46,3 +53,6 @@ if [ "$(uname)" = "Linux" ]; then
         sudo apt-get install -y build-essential
     fi
 fi
+
+# Not fatal: fails when this is not a usable git checkout (e.g. a source tarball).
+uv run pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."

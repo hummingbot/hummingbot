@@ -10,26 +10,24 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # Install python to check if core code has changed
-    - uses: actions/setup-python@v4
-      if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
-      with:
-        python-version: 3.x
-
+    # uv reads .python-version and downloads a managed interpreter itself, so no
+    # actions/setup-python is needed. setup-uv's own cache is disabled because the
+    # workflow already caches ~/.cache/uv (the `uv-dependencies` step, whose
+    # cache-hit output gates the test steps); enabling both would cache it twice.
     - name: Install uv
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
-      shell: bash
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "0.13.9"
+        enable-cache: false
 
-    # Install hummingbot env if pyproject.toml/uv.lock have changed, or re-sync a
-    # cached .venv whenever code changed too: uv sync is cheap when the lockfile is
-    # already satisfied, and it repairs a cached venv whose interpreter the runner
-    # no longer has (the cache only stores .venv/~/.cache/uv, not the interpreter).
+    # .venv is not cached (it embeds the absolute path of its interpreter, which a
+    # fresh runner does not have), so the environment is rebuilt on every run that
+    # reaches the tests. Only uv's download/build cache is restored, which makes
+    # `uv sync` a matter of re-linking wheels when the lockfile has not changed.
     - name: Install Hummingbot
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
-      shell: bash -l {0}
+      shell: bash
       run: |
         ./install
 

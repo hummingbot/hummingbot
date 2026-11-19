@@ -33,7 +33,7 @@ source. `hbot` runs, controls, and monitors a trading bot non-interactively: sta
 and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
 stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) and a C compiler (Xcode Command Line Tools on macOS, `build-essential` on Linux) — for the Cython extensions and for dependencies such as `safe-pysha3` that lack prebuilt wheels on some platforms.
 
 ```bash
 # Clone the repository

@@ -42,7 +42,12 @@ install:
 	fi
 	@mkdir -p logs
 	@uv sync $(UV_EXTRA)
-	@uv run pre-commit install
+# Make `hummingbot` importable from any directory (replaces `conda develop .`).
+# `uv sync` does not remove this file, but it is lost if the venv is recreated -- re-run `make install` then.
+	@site_packages="$$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")" && \
+		[ -d "$$site_packages" ] && \
+		printf '%s\n' "$(CURDIR)" > "$$site_packages/hummingbot-dev.pth" || \
+		echo "Warning: could not write hummingbot-dev.pth; 'import hummingbot' will only work from the repo root."
 	@if [ "$$(uname)" = "Linux" ] && command -v dpkg >/dev/null 2>&1; then \
 		if ! dpkg -s build-essential >/dev/null 2>&1; then \
 			echo "build-essential not found, installing..."; \
@@ -50,6 +55,8 @@ install:
 		fi; \
 	fi
 	@uv run python setup.py build_ext --inplace
+# Not fatal: fails when this is not a usable git checkout (e.g. a source tarball).
+	@uv run pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."
 	@ln -sf "$(CURDIR)/bin/hbot" ".venv/bin/hbot"
 	@echo "Done. Run: source .venv/bin/activate && hbot --help"
 
