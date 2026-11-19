@@ -1,8 +1,12 @@
 import asyncio
+import re
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
+
+from aioresponses import CallbackResult, aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.bybit_spot_candles import BybitSpotCandles
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
 
 class TestBybitSpotCandles(TestCandlesBase):
@@ -85,3 +89,41 @@ class TestBybitSpotCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+    def test_get_rest_candles_params_sends_start_and_end(self):
+        params = self.data_feed._get_rest_candles_params(start_time=1715162400, end_time=1715176800)
+
+        self.assertEqual(1715162400000, params["start"])
+        self.assertEqual(1715176800000, params["end"])
+        self.assertNotIn("startTime", params)
+        self.assertNotIn("endTime", params)
+
+    @aioresponses()
+    async def test_get_historical_candles_returns_a_window_older_than_the_latest_page(self, mock_api):
+        # Like the venue: the window comes from start/end (ms), newest 1000 if longer; without them, the latest 1000
+        step_ms = 3600 * 1000
+        latest_ms = 1792627200000
+
+        def kline_rows(first_ms, count):
+            rows = [[str(first_ms + i * step_ms), "100", "101", "99", "100.5", "2", "201"] for i in range(count)]
+            return rows[::-1]  # newest first
+
+        def callback(url, **kwargs):
+            query = url.query
+            if "start" in query and "end" in query:
+                first_ms, last_ms = int(query["start"]), int(query["end"])
+                count = min((last_ms - first_ms) // step_ms + 1, 1000)
+                rows = kline_rows(last_ms - (count - 1) * step_ms, count)
+            else:
+                rows = kline_rows(latest_ms - 999 * step_ms, 1000)
+            return CallbackResult(payload={"retCode": 0, "retMsg": "OK", "result": {"category": "spot", "symbol": "BTCUSDT", "list": rows}})
+
+        mock_api.get(re.compile(f"^{re.escape(self.data_feed.candles_url)}"), callback=callback, repeat=True)
+
+        start_time = (latest_ms - 3000 * step_ms) // 1000
+        end_time = start_time + 47 * 3600
+        candles = await self.data_feed.get_historical_candles(HistoricalCandlesConfig(
+            connector_name="bybit", trading_pair=self.trading_pair, interval=self.interval,
+            start_time=start_time, end_time=end_time))
+
+        self.assertEqual([start_time + i * 3600 for i in range(48)], candles["timestamp"].astype(int).tolist())
