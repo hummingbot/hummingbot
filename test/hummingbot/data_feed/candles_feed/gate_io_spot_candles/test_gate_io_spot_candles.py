@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import time
+import unittest
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
 from aioresponses import aioresponses
@@ -124,3 +125,26 @@ class TestGateioSpotCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+
+class GateioSpotCandlesWindowTest(unittest.TestCase):
+    """The REST window stays inside Gate's per-request point cap.
+
+    Gate counts ``from``..``to`` inclusively and refuses more than 1000 data
+    points ("Candlestick range too broad. Maximum 1000 data points are allowed
+    per request"). A request sized for exactly 1000 intervals sends 1001 points,
+    so the feed asks for one fewer.
+    """
+
+    def test_a_large_limit_still_requests_under_the_venue_cap(self):
+        feed = GateioSpotCandles(trading_pair="BTC-USDT", interval="1m")
+        requested_limit = 5000
+        candles_to_fetch = min(feed.candles_max_result_per_rest_request, requested_limit)
+        end = feed._calculate_end_time(int(time.time()))
+        start = feed._calculate_start_time(end - feed.interval_in_seconds * candles_to_fetch)
+
+        params = feed._get_rest_candles_params(start, end)
+        points = (params["to"] - params["from"]) // feed.interval_in_seconds
+
+        self.assertLessEqual(points, 999)
+        self.assertGreater(points, 0)
