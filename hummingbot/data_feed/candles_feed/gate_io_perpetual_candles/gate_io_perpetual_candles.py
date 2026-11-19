@@ -18,7 +18,7 @@ class GateioPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
-        self.quanto_multiplier = None
+        self.quanto_multiplier = 1
 
     @property
     def name(self):
@@ -117,7 +117,8 @@ class GateioPerpetualCandles(CandlesBase):
             high = i.get("h")
             low = i.get("l")
             close = i.get("c")
-            volume = i.get("v") * self.quanto_multiplier
+            multiplier = self.quanto_multiplier if self.quanto_multiplier is not None else 1
+            volume = i.get("v") * multiplier
             quote_asset_volume = i.get("sum")
             n_trades = 0
             taker_buy_base_volume = 0
@@ -143,7 +144,8 @@ class GateioPerpetualCandles(CandlesBase):
                 candles_row_dict["high"] = i["h"]
                 candles_row_dict["low"] = i["l"]
                 candles_row_dict["close"] = i["c"]
-                candles_row_dict["volume"] = i["v"] * self.quanto_multiplier
+                multiplier = self.quanto_multiplier if self.quanto_multiplier is not None else 1
+                candles_row_dict["volume"] = i["v"] * multiplier
                 candles_row_dict["quote_asset_volume"] = i.get("sum", 0)
                 candles_row_dict["n_trades"] = 0
                 candles_row_dict["taker_buy_base_volume"] = 0
