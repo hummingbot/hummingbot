@@ -29,6 +29,9 @@ CREATE_ORDER_PATH = "createOrder"
 CANCEL_ORDER_PATH = "cancelOrder"
 
 DEPTH_LEVELS = 100
+# After a REST snapshot seeds a book, the depth channel is subscribed again after this delay so a stream
+# snapshot rebuilds it: REST and stream states cannot be ordered within a millisecond.
+DEPTH_RESUBSCRIBE_DELAY = 1.0
 HISTORY_PAGE_LIMIT = 100
 HISTORY_MAX_PAGES = 5
 # When an order's status shows fills the connector has not recorded, its own lifetime is searched,

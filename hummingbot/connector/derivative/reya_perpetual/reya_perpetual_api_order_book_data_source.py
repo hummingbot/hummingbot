@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from hummingbot.connector.derivative.reya_perpetual import (
     reya_perpetual_constants as CONSTANTS,
@@ -28,15 +28,17 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._last_update_id = 0
         self._order_book_create_function = lambda: ReyaPerpetualOrderBook()
+        self._resubscribe_tasks: Set[asyncio.Task] = set()
 
     # Depth carries no sequence number, only `updatedAt`, the server time of the book state in
-    # milliseconds, which several states can share, and levels hold absolute quantities. Each depth
-    # subscription starts with a full snapshot followed by updates in order, so the book is rebuilt from
-    # the stream: on every subscription, and every FULL_ORDER_BOOK_RESET_DELTA_SECONDS by subscribing
-    # again. REST snapshots only seed a new book, or refresh it while the stream is down, until the next
-    # stream snapshot replaces them. Update ids are `updatedAt` times 1000, counting up in arrival order
-    # within a millisecond; a REST snapshot sorts before stream updates of its own millisecond, so no
-    # update newer than it is dropped.
+    # milliseconds, which several states can share, and levels hold absolute quantities, so a REST
+    # snapshot cannot be ordered exactly against stream updates of its millisecond. Each depth
+    # subscription starts with a full snapshot followed by updates in order, so books are rebuilt from
+    # the stream: on every subscription, every FULL_ORDER_BOOK_RESET_DELTA_SECONDS by subscribing again,
+    # and shortly after each REST snapshot, which only seeds a new book or refreshes it while the stream
+    # is down. Update ids are `updatedAt` times 1000, counting up in arrival order within a millisecond;
+    # a REST snapshot sorts before stream updates of its own millisecond, so no newer change is dropped
+    # while it stands.
 
     def _stream_update_id(self, updated_at_ms: int) -> int:
         self._last_update_id = max(self._last_update_id + 1, int(updated_at_ms) * 1000)
@@ -46,16 +48,32 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _rest_snapshot_update_id(updated_at_ms: int) -> int:
         return int(updated_at_ms) * 1000 - 1
 
+    async def _resubscribe_depth(self, trading_pair: str):
+        # Subscribing again delivers a fresh snapshot in order with the stream's updates.
+        ws = self._ws_assistant
+        if ws is None:
+            return
+        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+        channel = f"/v2/market/{symbol}/depth"
+        await ws.send(WSJSONRequest(payload={"type": "unsubscribe", "channel": channel}))
+        await ws.send(WSJSONRequest(payload={"type": "subscribe", "channel": channel}))
+
+    async def _resubscribe_depth_after_delay(self, trading_pair: str):
+        await self._sleep(CONSTANTS.DEPTH_RESUBSCRIBE_DELAY)
+        try:
+            await self._resubscribe_depth(trading_pair)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().warning(f"Could not subscribe to {trading_pair} depth again; the next refresh does.",
+                                  exc_info=True)
+
     async def _request_order_book_snapshots(self, output: asyncio.Queue):
         if self._ws_assistant is None:
             await super()._request_order_book_snapshots(output)
             return
-        # Subscribing again delivers a fresh snapshot in order with the stream's updates.
         for trading_pair in self._trading_pairs:
-            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-            channel = f"/v2/market/{symbol}/depth"
-            await self._ws_assistant.send(WSJSONRequest(payload={"type": "unsubscribe", "channel": channel}))
-            await self._ws_assistant.send(WSJSONRequest(payload={"type": "subscribe", "channel": channel}))
+            await self._resubscribe_depth(trading_pair)
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -76,6 +94,10 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
         snapshot = await self._connector._api_get(path_url=CONSTANTS.DEPTH_PATH.format(symbol=symbol),
                                                   params={"limit": CONSTANTS.DEPTH_LEVELS})
+        # Once the book this seeds is tracked, a stream snapshot replaces it.
+        task = asyncio.create_task(self._resubscribe_depth_after_delay(trading_pair))
+        self._resubscribe_tasks.add(task)
+        task.add_done_callback(self._resubscribe_tasks.discard)
         return self._book_message(OrderBookMessageType.SNAPSHOT, trading_pair, snapshot,
                                   self._rest_snapshot_update_id(snapshot["updatedAt"]))
 

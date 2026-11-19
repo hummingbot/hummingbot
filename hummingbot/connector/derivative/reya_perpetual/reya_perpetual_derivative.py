@@ -481,6 +481,7 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                # As the connector standard requires, a filled status is still applied when its fills cannot be read.
                 self.logger().warning(f"Failed to read the fills of Reya order {order.client_order_id}: {error}")
                 ready = True
             if ready:

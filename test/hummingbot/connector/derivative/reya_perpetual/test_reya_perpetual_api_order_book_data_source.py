@@ -161,3 +161,26 @@ class ReyaPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase)
         output = asyncio.Queue()
         await self.data_source._request_order_book_snapshots(output)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, output.get_nowait().type)
+
+    async def test_a_rest_snapshot_is_followed_by_a_stream_snapshot(self):
+        ws = MockWSAssistant()
+        self.data_source._ws_assistant = ws
+        self.data_source._sleep = AsyncMock()
+        self.connector._api_get.return_value = self.depth("SNAPSHOT", [{"px": "100", "qty": "2"}], [])
+        await self.data_source._order_book_snapshot(PAIR)
+        await asyncio.gather(*self.data_source._resubscribe_tasks)
+        channel = f"/v2/market/{SYMBOL}/depth"
+        self.assertEqual([{"type": "unsubscribe", "channel": channel}, {"type": "subscribe", "channel": channel}],
+                         ws.sent)
+
+    async def test_a_rest_snapshot_without_a_stream_schedules_nothing_that_fails(self):
+        self.data_source._sleep = AsyncMock()
+        self.connector._api_get.return_value = self.depth("SNAPSHOT", [], [])
+        await self.data_source._order_book_snapshot(PAIR)
+        await asyncio.gather(*self.data_source._resubscribe_tasks)
+
+        failing = MockWSAssistant()
+        failing.send = AsyncMock(side_effect=ConnectionError("closed"))
+        self.data_source._ws_assistant = failing
+        await self.data_source._order_book_snapshot(PAIR)
+        await asyncio.gather(*self.data_source._resubscribe_tasks)  # The failure is logged, not raised.
