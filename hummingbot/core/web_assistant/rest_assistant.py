@@ -44,7 +44,9 @@ class RESTAssistant:
         return_err: bool = False,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, Any]] = None,
+        allow_redirects: Optional[bool] = None,
     ) -> Union[str, Dict[str, Any]]:
+        redirect_options = {} if allow_redirects is None else {"allow_redirects": allow_redirects}
         response = await self.execute_request_and_get_response(
             url=url,
             throttler_limit_id=throttler_limit_id,
@@ -55,6 +57,7 @@ class RESTAssistant:
             return_err=return_err,
             timeout=timeout,
             headers=headers,
+            **redirect_options,
         )
         response_json = await response.json()
         return response_json
@@ -70,6 +73,7 @@ class RESTAssistant:
             return_err: bool = False,
             timeout: Optional[float] = None,
             headers: Optional[Dict[str, Any]] = None,
+            allow_redirects: Optional[bool] = None,
     ) -> RESTResponse:
 
         headers = headers or {}
@@ -87,6 +91,7 @@ class RESTAssistant:
             params=params,
             data=data,
             headers=local_headers,
+            allow_redirects=allow_redirects,
             is_auth_required=is_auth_required,
             throttler_limit_id=throttler_limit_id
         )
