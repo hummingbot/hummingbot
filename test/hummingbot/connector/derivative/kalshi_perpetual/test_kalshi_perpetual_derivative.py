@@ -804,6 +804,24 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.expected_exchange_order_id, exchange_order_id)
 
     @aioresponses()
+    def test_limit_maker_order_rejected_for_crossing_the_book_is_a_warning_not_a_network_error(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        mock_api.post(self.order_creation_url, status=400,
+                      body='{"error":{"code":"invalid_order","message":"invalid order","details":"post only cross"}}')
+
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY, order_id="OID1", trading_pair=self.trading_pair, amount=Decimal("1"),
+            order_type=OrderType.LIMIT_MAKER, price=Decimal("10000"), position_action=PositionAction.OPEN))
+
+        self.assertNotIn("OID1", self.exchange.in_flight_orders)
+        self.assertEqual("OID1", self.order_failure_logger.event_log[0].order_id)
+        warnings = [r for r in self.log_records if r.levelname == "WARNING" and "maker-only protection" in r.getMessage()]
+        self.assertEqual(1, len(warnings))
+        self.assertIsNone(warnings[0].exc_info)
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+
+    @aioresponses()
     def test_create_limit_maker_order_is_post_only(self, mock_api):
         self._simulate_trading_rules_initialized()
         mock_api.post(self.order_creation_url, body=json.dumps(self.order_creation_request_successful_mock_response))
