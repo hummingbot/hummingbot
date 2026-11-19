@@ -51,8 +51,8 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _resubscribe_depth(self, trading_pair: str):
         # Subscribing again delivers a fresh snapshot in order with the stream's updates.
         ws = self._ws_assistant
-        if ws is None:
-            return
+        if ws is None or trading_pair not in self._trading_pairs:
+            return  # No stream yet, or the market was removed after the refresh was scheduled.
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
         channel = f"/v2/market/{symbol}/depth"
         await ws.send(WSJSONRequest(payload={"type": "unsubscribe", "channel": channel}))

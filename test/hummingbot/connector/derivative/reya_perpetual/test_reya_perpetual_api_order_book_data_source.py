@@ -184,3 +184,13 @@ class ReyaPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase)
         self.data_source._ws_assistant = failing
         await self.data_source._order_book_snapshot(PAIR)
         await asyncio.gather(*self.data_source._resubscribe_tasks)  # The failure is logged, not raised.
+
+    async def test_a_market_removed_before_the_refresh_is_not_subscribed_again(self):
+        ws = MockWSAssistant()
+        self.data_source._ws_assistant = ws
+        self.data_source._sleep = AsyncMock()
+        self.connector._api_get.return_value = self.depth("SNAPSHOT", [], [])
+        await self.data_source._order_book_snapshot(PAIR)
+        self.data_source.remove_trading_pair(PAIR)
+        await asyncio.gather(*self.data_source._resubscribe_tasks)
+        self.assertEqual([], ws.sent)
