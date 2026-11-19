@@ -167,6 +167,8 @@ class OrderExecutor(ExecutorBase):
 
         :return: None
         """
+        if self._status in (RunnableStatus.TERMINATED, RunnableStatus.SHUTTING_DOWN):
+            return
         if not keep_position:
             self.logger().warning(
                 f"Executor {self.config.id}: keep_position=False is not supported by "
@@ -199,13 +201,13 @@ class OrderExecutor(ExecutorBase):
         Control the shutdown process of the executor.
         """
         if self._order:
-            if self._order.is_open:
-                self.cancel_order()
-            elif self._order.is_filled:
+            if self._order.is_filled:
                 self.close_type = CloseType.POSITION_HOLD
                 self._held_position_orders.append(self._order.order.to_json())
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
+            elif self._order.is_open:
+                self.cancel_order()
             else:
                 # Neither open nor filled — usually the created event never arrived
                 # (e.g. a stuck placement). Bounded wait, then force-stop with the
