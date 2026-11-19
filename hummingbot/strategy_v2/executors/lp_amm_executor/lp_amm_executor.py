@@ -1,6 +1,7 @@
+import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from hummingbot.connector.gateway.gateway import AMMPoolInfo
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -204,11 +205,14 @@ class LPAmmExecutor(ExecutorBase):
             self.logger().info(f"Resetting slippage to {self.config.slippage_pct}% for the next phase.")
         self._slippage_pct = self.config.slippage_pct
 
-    async def _existing_nft_position_addresses(self, connector) -> Set[str]:
-        """Snapshot the wallet's NFT position addresses in this pool before opening.
+    async def _snapshot_before_add(self, connector) -> Tuple[Set[str], Optional[Decimal]]:
+        """Snapshot the wallet's position in this pool before depositing.
 
-        Used to identify which position add_liquidity just created on an
-        NFT-backed AMM, by diffing against the addresses seen right after.
+        Used to isolate what add_liquidity just created from whatever the wallet
+        already held in the pool: by NFT address diff on an NFT-backed AMM, or by
+        LP-token balance delta on a fungible-LP one (no NFT breakdown) - otherwise
+        this executor would adopt the wallet's whole fungible-LP holding as its own
+        and later withdraw all of it, including any other liquidity sharing the pool.
         """
         try:
             positions = await connector.get_user_positions(
@@ -218,12 +222,41 @@ class LPAmmExecutor(ExecutorBase):
             )
         except Exception as e:
             self.logger().warning(f"Could not snapshot existing positions in {self.config.pool_address}: {e}")
-            return set()
+            return set(), None
         addresses = set()
+        lp_token_amount = Decimal("0")
         for info in positions:
-            for detail in (info.positions or []):
+            details = info.positions or []
+            for detail in details:
                 addresses.add(detail.position_address)
-        return addresses
+            if not details:
+                lp_token_amount += Decimal(str(getattr(info, "lp_token_amount", 0) or 0))
+        return addresses, lp_token_amount
+
+    async def _pool_address_matches_config(self, connector) -> bool:
+        """Reject a deposit/withdrawal the connector would route to a different pool
+        than the one this executor is configured to watch.
+
+        _amm_add_liquidity/_amm_remove_liquidity each independently resolve a pool
+        from the trading pair alone; if the wallet has liquidity in more than one
+        pool for the same pair, that resolution can silently disagree with
+        config.pool_address.
+        """
+        try:
+            discovered = await connector.get_pool_address(
+                self.config.trading_pair, dex_name=self.lp_dex_name, trading_type=self.lp_trading_type,
+            )
+        except Exception as e:
+            self.logger().warning(f"Could not verify pool address for {self.config.trading_pair}: {e}")
+            return True
+        if discovered and discovered != self.config.pool_address:
+            self.logger().error(
+                f"Configured pool {self.config.pool_address} for {self.config.trading_pair} does not match "
+                f"the pool {discovered} the connector resolved for that pair - refusing to risk funds on the "
+                "wrong pool."
+            )
+            return False
+        return True
 
     async def _create_position(self):
         """Create position by directly awaiting the gateway operation."""
@@ -233,12 +266,18 @@ class LPAmmExecutor(ExecutorBase):
             self._handle_create_failure(ValueError(f"Connector {self.config.connector_name} not found"))
             return
 
+        if not await self._pool_address_matches_config(connector):
+            self._handle_create_failure(ValueError(
+                f"Pool mismatch for {self.config.trading_pair}: configured {self.config.pool_address}"
+            ))
+            return
+
         price = self._current_price if self._current_price else Decimal("0")
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
         self.lp_position_state.active_open_order = TrackedOrder(order_id=order_id)
 
         try:
-            before_addresses = await self._existing_nft_position_addresses(connector)
+            before_addresses, before_lp_tokens = await self._snapshot_before_add(connector)
 
             self.logger().info(f"Calling gateway to add AMM liquidity with order_id={order_id}")
             signature = await connector._amm_add_liquidity(
@@ -254,22 +293,38 @@ class LPAmmExecutor(ExecutorBase):
                 max_retries=self._max_retries,
             )
 
+            if not signature:
+                # The connector's failure contract: a caught transaction error is
+                # recorded on the order and swallowed into None, not re-raised.
+                # Treating that as a signature would book a deposit that never landed.
+                self._handle_create_failure(ValueError(
+                    f"Add liquidity for {self.config.trading_pair} returned no transaction signature"
+                ))
+                return
+
             self.lp_position_state.active_open_order = None
             self.lp_position_state.open_tx_hash = signature
             self._reset_slippage()
 
-            try:
-                position_info = await connector.get_position_info_fresh(
-                    trading_pair=self.config.trading_pair,
-                    dex_name=self.lp_dex_name,
-                    trading_type=self.lp_trading_type,
-                    position_address=self.config.pool_address,
-                )
-            except Exception as info_error:
-                self.logger().warning(f"Position info fetch after create failed: {info_error}")
-                position_info = None
+            position_info = None
+            for attempt in range(3):
+                try:
+                    position_info = await connector.get_position_info_fresh(
+                        trading_pair=self.config.trading_pair,
+                        dex_name=self.lp_dex_name,
+                        trading_type=self.lp_trading_type,
+                        position_address=self.config.pool_address,
+                    )
+                    break
+                except Exception as info_error:
+                    self.logger().warning(
+                        f"Position info fetch after create failed (attempt {attempt + 1}/3): {info_error}"
+                    )
+                    if attempt < 2:
+                        await asyncio.sleep(1.0)
 
             nft_address = None
+            own_lp_token_amount = None
             base_amount = self.config.base_amount
             quote_amount = self.config.quote_amount
             current_price = price
@@ -292,10 +347,21 @@ class LPAmmExecutor(ExecutorBase):
                     base_amount = Decimal(str(detail.base_token_amount))
                     quote_amount = Decimal(str(detail.quote_token_amount))
                 else:
-                    # Fungible-LP pool: no per-position breakdown, the pool address
-                    # alone identifies the wallet's whole holding.
+                    # Fungible-LP pool: no per-position breakdown. Isolate this
+                    # deposit's own share by the LP-token delta, not the wallet's
+                    # whole holding - otherwise closing this executor later withdraws
+                    # everything the wallet holds in the pool.
                     base_amount = Decimal(str(position_info.base_token_amount))
                     quote_amount = Decimal(str(position_info.quote_token_amount))
+                    after_lp_tokens = Decimal(str(getattr(position_info, "lp_token_amount", 0) or 0))
+                    if before_lp_tokens is not None:
+                        own_lp_token_amount = after_lp_tokens - before_lp_tokens
+                    else:
+                        self.logger().warning(
+                            "Pre-deposit LP-token snapshot was unavailable: this executor cannot isolate "
+                            "its own share of a fungible-LP pool and will withdraw the wallet's whole "
+                            "balance on close."
+                        )
             else:
                 self.logger().warning(
                     "Position info fetch failed after a confirmed open: using config amounts as a "
@@ -305,6 +371,7 @@ class LPAmmExecutor(ExecutorBase):
 
             self.lp_position_state.position_opened = True
             self.lp_position_state.position_nft_address = nft_address
+            self.lp_position_state.own_lp_token_amount = own_lp_token_amount
             self.lp_position_state.base_amount = base_amount
             self.lp_position_state.quote_amount = quote_amount
             self.lp_position_state.initial_base_amount = base_amount
@@ -447,6 +514,12 @@ class LPAmmExecutor(ExecutorBase):
         if self._strategy.current_timestamp < self._close_backoff_until:
             return
 
+        if not await self._pool_address_matches_config(connector):
+            self._handle_close_failure(ValueError(
+                f"Pool mismatch for {self.config.trading_pair}: configured {self.config.pool_address}"
+            ))
+            return
+
         # Verify the position still exists before trying to close (handles a
         # timeout-but-succeeded prior attempt). Only trusted on an NFT-backed
         # position, since a fungible-LP read has no "not found" signal to act on.
@@ -483,6 +556,34 @@ class LPAmmExecutor(ExecutorBase):
             if position_info is not False:
                 self._position_not_found_count = 0
 
+        remove_percentage = 100.0
+        if not self.lp_position_state.position_nft_address and self.lp_position_state.own_lp_token_amount is not None:
+            # Fungible-LP pool: removing 100% would withdraw whatever else the
+            # wallet holds there too. Scale down to this executor's own share of
+            # the wallet's current LP-token balance.
+            try:
+                wallet_position = await connector.get_position_info_fresh(
+                    trading_pair=self.config.trading_pair,
+                    dex_name=self.lp_dex_name,
+                    trading_type=self.lp_trading_type,
+                    position_address=self.config.pool_address,
+                )
+            except Exception as e:
+                self._handle_close_failure(e)
+                return
+            wallet_lp_tokens = (
+                Decimal(str(getattr(wallet_position, "lp_token_amount", 0) or 0)) if wallet_position else Decimal("0")
+            )
+            own_lp_tokens = self.lp_position_state.own_lp_token_amount
+            if wallet_lp_tokens <= 0 or own_lp_tokens <= 0:
+                self.logger().info(
+                    f"Fungible-LP pool {self.config.pool_address} reports no LP-token balance left for "
+                    "this executor's own share - treating the position as already gone."
+                )
+                self._handle_position_gone()
+                return
+            remove_percentage = min(100.0, float(own_lp_tokens / wallet_lp_tokens * 100))
+
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
         self.lp_position_state.active_close_order = TrackedOrder(order_id=order_id)
 
@@ -493,12 +594,22 @@ class LPAmmExecutor(ExecutorBase):
                 trade_type=TradeType.RANGE,
                 order_id=order_id,
                 trading_pair=self.config.trading_pair,
-                percentage=100.0,
+                percentage=remove_percentage,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
                 position_address=self.lp_position_state.position_nft_address,
                 max_retries=0,
             )
+
+            if not signature:
+                # Same swallowed-failure contract as the add side: a caught
+                # transaction error is recorded on the order and returns None
+                # rather than raising. Treating that as a signature would mark
+                # liquidity removed, and still on-chain, as closed.
+                self._handle_close_failure(ValueError(
+                    f"Remove liquidity for {self.config.trading_pair} returned no transaction signature"
+                ))
+                return
 
             self.logger().info(f"Position close confirmed, signature={signature}")
             # _amm_remove_liquidity reports neither the removed amounts nor a close
@@ -592,6 +703,21 @@ class LPAmmExecutor(ExecutorBase):
             "position_nft_address": self.lp_position_state.position_nft_address,
         })
 
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot a still-open position as a held order before the orchestrator reads it.
+
+        force_stop_with_position_hold() (the orchestrator shutdown-deadline path)
+        calls this directly, bypassing both the retry-exhaustion marker above and
+        the normal close's _store_net_trade_from_withdrawal. Without this, a
+        position still on-chain at a forced stop reports no held orders, so the
+        orchestrator records FAILED instead of POSITION_HOLD and the live exposure
+        falls out of tracking.
+        """
+        if self.lp_position_state.position_opened and not self._held_position_orders:
+            self._hold_reason = self._hold_reason or "forced_stop"
+            self._record_unclosed_position_marker()
+        return super()._collect_held_position_orders()
+
     def early_stop(self, keep_position: bool = True):
         """Stop executor - transitions to CLOSING state.
 
@@ -655,6 +781,26 @@ class LPAmmExecutor(ExecutorBase):
                 "executed_amount_base": 0.0,
                 "executed_amount_quote": 0.0,
                 "cumulative_fee_paid_quote": float(tx_fee_quote),
+                "lp_source": True,
+                "lp_net_trade": True,
+            })
+            return
+
+        if net_base > 0 and net_quote > 0:
+            # Both sides grew: fees earned on both at once, not a swap of one
+            # token into the other. Folding this into a BUY/SELL would take
+            # abs(net_quote) as a cost, inverting the quote gain into a loss.
+            # Record it as earned value instead, via a negative fee (there is no
+            # other field in this schema for "earned", only "paid").
+            gained_quote = net_base * mid_price + net_quote
+            self._held_position_orders.append({
+                "client_order_id": order_id,
+                "trading_pair": self.config.trading_pair,
+                "trade_type": "BUY",  # dummy; executed amounts are 0, only the fee field carries value
+                "price": float(mid_price),
+                "executed_amount_base": 0.0,
+                "executed_amount_quote": 0.0,
+                "cumulative_fee_paid_quote": float(tx_fee_quote - gained_quote),
                 "lp_source": True,
                 "lp_net_trade": True,
             })

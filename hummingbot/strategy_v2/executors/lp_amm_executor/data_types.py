@@ -4,6 +4,7 @@ from typing import Dict, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 from hummingbot.strategy_v2.executors.validation import (
     require_non_empty,
@@ -54,6 +55,13 @@ class LPAmmExecutorConfig(ExecutorConfigBase):
     lp_provider: str
     pool_address: str
     trading_pair: str
+
+    # Always RANGE: a constant-product AMM deposit is two-sided by construction,
+    # never a single-sided BUY/SELL. Required so the orchestrator's PositionHold
+    # ledger (executor_orchestrator.py's add_orders_from_executor/_determine_position_side,
+    # which unconditionally reads executor_info.config.side even in a plain log line)
+    # does not raise AttributeError the first time this executor ends in POSITION_HOLD.
+    side: TradeType = TradeType.RANGE
 
     base_amount: Decimal = Decimal("0")
     quote_amount: Decimal = Decimal("0")
@@ -130,6 +138,13 @@ class LPAmmExecutorState(BaseModel):
 
     base_amount: Decimal = Decimal("0")
     quote_amount: Decimal = Decimal("0")
+
+    # For a fungible-LP pool only (position_nft_address is None): this deposit's own
+    # share of the wallet's pool-wide LP-token balance, captured as the delta across
+    # the add_liquidity call. None when it could not be captured (the pre-deposit
+    # snapshot read failed) - closing then falls back to removing the wallet's whole
+    # balance, which is unsafe if the wallet holds other liquidity in the same pool.
+    own_lp_token_amount: Optional[Decimal] = None
 
     # Amounts and price at ADD time, fixed for the life of the position -
     # used to compute fees earned / impermanent loss / fee APR against.
