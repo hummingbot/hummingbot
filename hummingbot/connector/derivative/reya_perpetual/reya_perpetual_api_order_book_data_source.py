@@ -30,10 +30,13 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._order_book_create_function = lambda: ReyaPerpetualOrderBook()
 
     # Depth carries no sequence number, only `updatedAt`, the server time of the book state in
-    # milliseconds, which several states can share, and levels hold absolute quantities. Update ids are
-    # that time times 1000: stream messages count up within a millisecond in arrival order, and a REST
-    # snapshot takes the last id of its millisecond. Replaying stream updates after a REST snapshot then
-    # applies only those that are newer than it, never an older quantity over a newer snapshot.
+    # milliseconds, which several states can share, and levels hold absolute quantities. Each depth
+    # subscription starts with a full snapshot followed by updates in order, so the book is rebuilt from
+    # the stream: on every subscription, and every FULL_ORDER_BOOK_RESET_DELTA_SECONDS by subscribing
+    # again. REST snapshots only seed a new book, or refresh it while the stream is down, until the next
+    # stream snapshot replaces them. Update ids are `updatedAt` times 1000, counting up in arrival order
+    # within a millisecond; a REST snapshot sorts before stream updates of its own millisecond, so no
+    # update newer than it is dropped.
 
     def _stream_update_id(self, updated_at_ms: int) -> int:
         self._last_update_id = max(self._last_update_id + 1, int(updated_at_ms) * 1000)
@@ -41,7 +44,18 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     @staticmethod
     def _rest_snapshot_update_id(updated_at_ms: int) -> int:
-        return int(updated_at_ms) * 1000 + 999
+        return int(updated_at_ms) * 1000 - 1
+
+    async def _request_order_book_snapshots(self, output: asyncio.Queue):
+        if self._ws_assistant is None:
+            await super()._request_order_book_snapshots(output)
+            return
+        # Subscribing again delivers a fresh snapshot in order with the stream's updates.
+        for trading_pair in self._trading_pairs:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+            channel = f"/v2/market/{symbol}/depth"
+            await self._ws_assistant.send(WSJSONRequest(payload={"type": "unsubscribe", "channel": channel}))
+            await self._ws_assistant.send(WSJSONRequest(payload={"type": "subscribe", "channel": channel}))
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)

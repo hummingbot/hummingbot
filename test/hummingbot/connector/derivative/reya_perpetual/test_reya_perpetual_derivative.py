@@ -4,7 +4,7 @@ import re
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -812,6 +812,39 @@ class ReyaPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
                           "endTime": 1640780005000 + CONSTANTS.ORDER_FILLS_SETTLEMENT_WINDOW * 1000},
                          executions_request.kwargs["params"])
         self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertTrue(order.is_filled)
+
+    @aioresponses()
+    async def test_reading_a_finished_orders_fills_resumes_on_the_next_poll(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(order_id="HBOT-3", exchange_order_id="10003", trading_pair=self.trading_pair,
+                                           trade_type=TradeType.BUY, price=Decimal("100"), amount=Decimal("2"),
+                                           order_type=OrderType.LIMIT)
+        order = self.exchange.in_flight_orders["HBOT-3"]
+        row = {**self.order_row(order, "FILLED", Decimal("2")), "lastUpdateAt": 1640780005000}
+        first = {**self.execution(order, Decimal("1"), Decimal("100")), "sequenceNumber": 1}
+        second = {**self.execution(order, Decimal("1"), Decimal("100")), "sequenceNumber": 2}
+        for _ in range(2):
+            mock_api.get(self.wallet_url("openOrders"), body=json.dumps([]))
+            mock_api.get(self.wallet_url("orderHistory"), body=json.dumps(self.page([row])))
+        mock_api.get(self.wallet_url("perpExecutions"), body=json.dumps(
+            {"data": [first], "meta": {"limit": 100, "count": 1, "nextCursor": "older"}}))
+        mock_api.get(self.wallet_url("perpExecutions"), body=json.dumps(self.page([second])))
+
+        with patch.object(CONSTANTS, "ORDER_FILLS_MAX_PAGES", 1):
+            await self.exchange._update_orders()
+            await asyncio.sleep(0.1)
+            # The window holds more pages than one poll reads: the order stays open with what was found.
+            self.assertEqual(Decimal("1"), order.executed_amount_base)
+            self.assertFalse(order.is_done)
+
+            await self.exchange._update_orders()
+            await asyncio.sleep(0.1)
+
+        executions_requests = [call for (method, url), calls in mock_api.requests.items()
+                               if "perpExecutions" in str(url) for call in calls]
+        self.assertEqual("older", executions_requests[-1].kwargs["params"]["cursor"])
+        self.assertEqual(Decimal("2"), order.executed_amount_base)
         self.assertTrue(order.is_filled)
 
     async def test_a_valuation_from_before_a_snapshot_removal_does_not_reopen_the_position(self):

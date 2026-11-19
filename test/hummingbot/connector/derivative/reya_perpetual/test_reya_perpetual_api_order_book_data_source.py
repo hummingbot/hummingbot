@@ -101,7 +101,7 @@ class ReyaPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase)
         self.assertEqual("", self.data_source._channel_originating_message(
             {"type": "error", "channel": f"/v2/market/{SYMBOL}/depth", "message": "Unknown market"}))
 
-    async def test_a_rest_snapshot_replays_only_stream_updates_newer_than_it(self):
+    async def test_a_rest_snapshot_keeps_stream_updates_from_its_millisecond_on(self):
         # Depth updates that arrive while the REST request runs can be older or newer than the state it returns.
         channel = f"/v2/market/{SYMBOL}/depth"
 
@@ -122,12 +122,42 @@ class ReyaPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase)
         for message in (older, same_millisecond, newer):
             await self.data_source._parse_order_book_diff_message(message, output)
         diffs = [output.get_nowait() for _ in range(3)]
-        # The tracker replays every recent diff after a snapshot; the book keeps only those newer than it.
+        # The tracker replays every recent diff after a snapshot. The book skips those from an earlier
+        # millisecond and keeps those from the snapshot's own millisecond on, so no newer change is dropped.
         book = self.data_source.order_book_create_function()
         self.assertIsInstance(book, ReyaPerpetualOrderBook)
         book.restore_from_snapshot_and_diffs(snapshot, diffs)
-        self.assertEqual({100.0: 2.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})
+        self.assertEqual({100.0: 6.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})
 
-        # So do diffs queued before the first snapshot, which the tracker applies directly.
+        # Diffs queued before the first snapshot, which the tracker applies directly, are filtered the same way.
         book.apply_diffs(diffs[0].bids, diffs[0].asks, diffs[0].update_id)
-        self.assertEqual({100.0: 2.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})
+        self.assertEqual({100.0: 6.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})
+
+        # The next stream snapshot replaces the book, then only stream updates after it are replayed.
+        stream_snapshot = {"type": "subscribed", "channel": channel,
+                           "contents": {**self.depth("SNAPSHOT", [{"px": "100", "qty": "3"}], []),
+                                        "updatedAt": 1700000003000}}
+        later = update(1700000003500, [{"px": "98", "qty": "4"}])
+        for message in (stream_snapshot, later):
+            self.data_source._channel_originating_message(message)
+        await self.data_source._parse_order_book_snapshot_message(stream_snapshot, output)
+        await self.data_source._parse_order_book_diff_message(later, output)
+        stream_snapshot_message, later_message = output.get_nowait(), output.get_nowait()
+        book.restore_from_snapshot_and_diffs(stream_snapshot_message, diffs + [later_message])
+        self.assertEqual({100.0: 3.0, 98.0: 4.0}, {row.price: row.amount for row in book.bid_entries()})
+
+    async def test_the_periodic_refresh_subscribes_again_for_a_stream_snapshot(self):
+        ws = MockWSAssistant()
+        self.data_source._ws_assistant = ws
+        output = asyncio.Queue()
+        await self.data_source._request_order_book_snapshots(output)
+        channel = f"/v2/market/{SYMBOL}/depth"
+        self.assertEqual([{"type": "unsubscribe", "channel": channel}, {"type": "subscribe", "channel": channel}],
+                         ws.sent)
+        self.assertTrue(output.empty())
+
+    async def test_the_periodic_refresh_reads_rest_while_the_stream_is_down(self):
+        self.connector._api_get.return_value = self.depth("SNAPSHOT", [{"px": "100", "qty": "2"}], [])
+        output = asyncio.Queue()
+        await self.data_source._request_order_book_snapshots(output)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, output.get_nowait().type)
