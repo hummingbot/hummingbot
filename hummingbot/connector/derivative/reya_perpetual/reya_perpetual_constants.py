@@ -31,6 +31,10 @@ CANCEL_ORDER_PATH = "cancelOrder"
 DEPTH_LEVELS = 100
 HISTORY_PAGE_LIMIT = 100
 HISTORY_MAX_PAGES = 5
+# When an order's status shows fills the connector has not recorded, its own lifetime is searched,
+# up to this many pages, ending this long after its last update because executions settle after the match.
+ORDER_FILLS_MAX_PAGES = 20
+ORDER_FILLS_SETTLEMENT_WINDOW = 60
 # Funding payments are reported per UTC hour, each covering [timestamp, timestamp + 1 hour).
 FUNDING_PAYMENT_INTERVAL_MS = 3_600_000
 # A refused wallet subscription is requested again after a delay that doubles, with jitter, up to the maximum.

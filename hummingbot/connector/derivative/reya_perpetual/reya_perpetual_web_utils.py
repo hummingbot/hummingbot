@@ -1,3 +1,5 @@
+import time
+
 from hummingbot.connector.derivative.reya_perpetual import reya_perpetual_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -18,6 +20,12 @@ def api_wallet_status_url(address: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) 
 
 def wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     return CONSTANTS.WS_URLS[domain]
+
+
+async def get_current_server_time(throttler: AsyncThrottler = None, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> float:
+    # Reya has no server-time endpoint: request signatures carry deadlines checked against the chain's
+    # block time, so the status polling loop's time synchronization uses the local clock.
+    return time.time()
 
 
 def build_api_factory(throttler: AsyncThrottler = None, auth: AuthBase = None) -> WebAssistantsFactory:

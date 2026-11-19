@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock
@@ -760,6 +761,71 @@ class ReyaPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         mock_api.get(self.funding_info_url, body=json.dumps(summary))
         funding_info = await self.exchange._orderbook_ds.get_funding_info(self.trading_pair)
         self.assertEqual(Decimal("20"), funding_info.index_price)
+
+    async def test_status_polling_synchronizes_time_without_a_server_time_endpoint(self):
+        self.assertAlmostEqual(time.time(), await web_utils.get_current_server_time(), delta=5)
+        fetch = AsyncMock(side_effect=asyncio.CancelledError)
+        self.exchange._status_polling_loop_fetch_updates = fetch
+        self.exchange._poll_notifier.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await asyncio.wait_for(self.exchange._status_polling_loop(), timeout=2)
+        fetch.assert_awaited_once()
+
+    def mock_order_status(self, mock_api, row: Dict[str, Any], executions: List[Dict[str, Any]]):
+        mock_api.get(self.wallet_url("openOrders"), body=json.dumps([]))
+        mock_api.get(self.wallet_url("orderHistory"), body=json.dumps(self.page([row])))
+        mock_api.get(self.wallet_url("perpExecutions"), body=json.dumps(self.page(executions)))
+
+    @aioresponses()
+    async def test_an_order_recovered_without_an_exchange_id_completes_with_its_fills(self, mock_api):
+        # The create timed out, so the order is tracked without the exchange id that fills are matched by.
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(order_id="HBOT-2", exchange_order_id=None, trading_pair=self.trading_pair,
+                                           trade_type=TradeType.BUY, price=Decimal("100"), amount=Decimal("1"),
+                                           order_type=OrderType.LIMIT)
+        order = self.exchange.in_flight_orders["HBOT-2"]
+        row = {**self.order_row(order, "FILLED", Decimal("1")), "orderId": "10002"}
+        execution = {**self.execution(order, Decimal("1"), Decimal("100")), "takerOrderId": "10002"}
+        self.mock_order_status(mock_api, row, [execution])
+
+        await self.exchange._update_orders()
+        await asyncio.sleep(0.1)
+
+        self.assertEqual("10002", order.exchange_order_id)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertTrue(order.is_filled)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+
+    @aioresponses()
+    async def test_missing_fills_are_read_from_the_orders_own_lifetime(self, mock_api):
+        # Fills older than the newest history pages are found by reading the window the order lived in.
+        order = self.tracked_order()
+        row = {**self.order_row(order, "FILLED", Decimal("1")), "lastUpdateAt": 1640780005000}
+        self.mock_order_status(mock_api, row, [self.execution(order, Decimal("1"), Decimal("100"))])
+
+        await self.exchange._update_orders()
+        await asyncio.sleep(0.1)
+
+        executions_request = next(calls[0] for (method, url), calls in mock_api.requests.items()
+                                  if "perpExecutions" in str(url))
+        self.assertEqual({"limit": CONSTANTS.HISTORY_PAGE_LIMIT, "startTime": 1640780000000,
+                          "endTime": 1640780005000 + CONSTANTS.ORDER_FILLS_SETTLEMENT_WINDOW * 1000},
+                         executions_request.kwargs["params"])
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertTrue(order.is_filled)
+
+    async def test_a_valuation_from_before_a_snapshot_removal_does_not_reopen_the_position(self):
+        await self.exchange._apply_positions([self.position_row("1", 5)], complete=False)
+        # A complete REST snapshot no longer lists the position: it was closed.
+        await self.exchange._apply_positions([], complete=True, changes_before=self.exchange._position_change_count)
+        await self.exchange._apply_position_valuations([self.position_risk(qty="1", unrealized_pnl="3")
+                                                        | {"lastTradeSequenceNumber": 5}])
+        self.assertEqual({}, self.exchange.account_positions)
+
+        # A newer trade reopens it.
+        await self.exchange._apply_position_valuations([self.position_risk(qty="2", unrealized_pnl="3")
+                                                        | {"lastTradeSequenceNumber": 6}])
+        self.assertEqual(Decimal("2"), self.exchange.account_positions[self.trading_pair].amount)
 
     async def run_user_stream(self, *events: Dict[str, Any]):
         mock_queue = AsyncMock()

@@ -1,5 +1,4 @@
 import asyncio
-import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -7,6 +6,7 @@ from hummingbot.connector.derivative.reya_perpetual import (
     reya_perpetual_constants as CONSTANTS,
     reya_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.derivative.reya_perpetual.reya_perpetual_order_book import ReyaPerpetualOrderBook
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -27,12 +27,21 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._last_update_id = 0
+        self._order_book_create_function = lambda: ReyaPerpetualOrderBook()
 
-    def _next_update_id(self) -> int:
-        # Depth frames carry no sequence number. Ids are assigned in arrival order, so the
-        # order book tracker applies each diff after the snapshot that preceded it.
-        self._last_update_id = max(self._last_update_id + 1, time.time_ns())
+    # Depth carries no sequence number, only `updatedAt`, the server time of the book state in
+    # milliseconds, which several states can share, and levels hold absolute quantities. Update ids are
+    # that time times 1000: stream messages count up within a millisecond in arrival order, and a REST
+    # snapshot takes the last id of its millisecond. Replaying stream updates after a REST snapshot then
+    # applies only those that are newer than it, never an older quantity over a newer snapshot.
+
+    def _stream_update_id(self, updated_at_ms: int) -> int:
+        self._last_update_id = max(self._last_update_id + 1, int(updated_at_ms) * 1000)
         return self._last_update_id
+
+    @staticmethod
+    def _rest_snapshot_update_id(updated_at_ms: int) -> int:
+        return int(updated_at_ms) * 1000 + 999
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -51,10 +60,10 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-        update_id = self._next_update_id()
         snapshot = await self._connector._api_get(path_url=CONSTANTS.DEPTH_PATH.format(symbol=symbol),
                                                   params={"limit": CONSTANTS.DEPTH_LEVELS})
-        return self._book_message(OrderBookMessageType.SNAPSHOT, trading_pair, snapshot, update_id)
+        return self._book_message(OrderBookMessageType.SNAPSHOT, trading_pair, snapshot,
+                                  self._rest_snapshot_update_id(snapshot["updatedAt"]))
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws = await self._api_factory.get_ws_assistant()
@@ -112,7 +121,7 @@ class ReyaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return ""
         if channel.endswith("/depth"):
             payload = self._payload(event_message) or {}
-            event_message["update_id"] = self._next_update_id()
+            event_message["update_id"] = self._stream_update_id(payload.get("updatedAt", 0))
             if payload.get("type") == "SNAPSHOT":
                 return self._snapshot_messages_queue_key
             return self._diff_messages_queue_key

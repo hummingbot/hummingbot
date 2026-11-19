@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 from hummingbot.connector.derivative.reya_perpetual.reya_perpetual_api_order_book_data_source import (
     ReyaPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.derivative.reya_perpetual.reya_perpetual_order_book import ReyaPerpetualOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 PAIR, SYMBOL = "BTC-RUSD", "BTCRUSDPERP"
@@ -99,3 +100,34 @@ class ReyaPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase)
     def test_rejected_subscriptions_are_not_routed(self):
         self.assertEqual("", self.data_source._channel_originating_message(
             {"type": "error", "channel": f"/v2/market/{SYMBOL}/depth", "message": "Unknown market"}))
+
+    async def test_a_rest_snapshot_replays_only_stream_updates_newer_than_it(self):
+        # Depth updates that arrive while the REST request runs can be older or newer than the state it returns.
+        channel = f"/v2/market/{SYMBOL}/depth"
+
+        def update(updated_at, bids):
+            return {"type": "channel_data", "channel": channel,
+                    "data": {**self.depth("UPDATE", bids, []), "updatedAt": updated_at}}
+
+        older = update(1700000000000, [{"px": "100", "qty": "5"}])
+        same_millisecond = update(1700000002000, [{"px": "100", "qty": "6"}])
+        newer = update(1700000002001, [{"px": "99", "qty": "1"}])
+        for message in (older, same_millisecond, newer):
+            self.data_source._channel_originating_message(message)
+        self.connector._api_get.return_value = {**self.depth("SNAPSHOT", [{"px": "100", "qty": "2"}], []),
+                                                "updatedAt": 1700000002000}
+        snapshot = await self.data_source._order_book_snapshot(PAIR)
+
+        output = asyncio.Queue()
+        for message in (older, same_millisecond, newer):
+            await self.data_source._parse_order_book_diff_message(message, output)
+        diffs = [output.get_nowait() for _ in range(3)]
+        # The tracker replays every recent diff after a snapshot; the book keeps only those newer than it.
+        book = self.data_source.order_book_create_function()
+        self.assertIsInstance(book, ReyaPerpetualOrderBook)
+        book.restore_from_snapshot_and_diffs(snapshot, diffs)
+        self.assertEqual({100.0: 2.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})
+
+        # So do diffs queued before the first snapshot, which the tracker applies directly.
+        book.apply_diffs(diffs[0].bids, diffs[0].asks, diffs[0].update_id)
+        self.assertEqual({100.0: 2.0, 99.0: 1.0}, {row.price: row.amount for row in book.bid_entries()})

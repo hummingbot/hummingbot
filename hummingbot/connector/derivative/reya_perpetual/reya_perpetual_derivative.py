@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 from decimal import Decimal
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import aiohttp
 from bidict import bidict
@@ -87,6 +87,8 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
         # counter of position changes so a REST snapshot does not undo a newer stream update.
         self._position_sequences: Dict[str, int] = {}
         self._position_changes: Dict[str, int] = {}
+        # Markets whose position was removed at the sequence in _position_sequences; only a newer trade reopens it.
+        self._closed_positions: Set[str] = set()
         self._position_change_count = 0
         self._signer_validated = False
         self._maker_fee = reya_perpetual_utils.DEFAULT_FEES.maker_percent_fee_decimal
@@ -347,11 +349,14 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
         await self._api_post(path_url=CONSTANTS.CANCEL_ORDER_PATH, data=data, is_auth_required=True)
         return True
 
-    async def _history(self, resource: str, since: float) -> Tuple[List[Dict[str, Any]], bool]:
-        """Reads up to HISTORY_MAX_PAGES pages of a wallet history; also returns whether it read them all."""
+    async def _history(self, resource: str, since: float, until: Optional[float] = None,
+                       max_pages: int = CONSTANTS.HISTORY_MAX_PAGES) -> Tuple[List[Dict[str, Any]], bool]:
+        """Reads up to `max_pages` pages of a wallet history, newest first; also returns whether it read them all."""
         rows: List[Dict[str, Any]] = []
         params = {"limit": CONSTANTS.HISTORY_PAGE_LIMIT, "startTime": int(since * 1000)}
-        for _ in range(CONSTANTS.HISTORY_MAX_PAGES):
+        if until is not None:
+            params["endTime"] = int(until * 1000)
+        for _ in range(max_pages):
             page = await self._api_get(path_url=self._wallet_path(resource), params=params)
             rows += page["data"]
             cursor = page.get("meta", {}).get("nextCursor")
@@ -394,18 +399,38 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=str(row["orderId"]),
         )
 
-    def _order_update_from_rows(self, order: InFlightOrder, rows: List[Dict[str, Any]], complete: bool) -> OrderUpdate:
+    def _order_row(self, order: InFlightOrder, rows: List[Dict[str, Any]], complete: bool) -> Dict[str, Any]:
         row = self._match_order(order, rows)
         if row is None and complete:
             raise ReyaOrderNotFound(f"Order {order.client_order_id} is neither open nor in Reya's order history")
         if row is None:
             raise ReyaOrderHistoryTruncated(f"Order {order.client_order_id} is not in the most recent "
                                             f"{CONSTANTS.HISTORY_MAX_PAGES} pages of order history")
-        return self._order_update(order, row)
+        return row
+
+    async def _recover_fills(self, order: InFlightOrder, row: Dict[str, Any]):
+        """Prepares an order for a status that may complete it.
+
+        An order whose create had an unknown outcome learns its exchange id from the row; fills are
+        matched by that id. When the row shows more filled than the connector has recorded, for
+        example after a stream outage longer than the newest history pages, the order's own executions
+        are read before the status is applied, so it does not complete with missing fills.
+        """
+        if not order.exchange_order_id:
+            order.update_exchange_order_id(str(row["orderId"]))
+        if Decimal(row.get("cumQty") or "0") <= order.executed_amount_base:
+            return
+        executions, _ = await self._history("perpExecutions", order.creation_timestamp,
+                                            until=row["lastUpdateAt"] / 1000 + CONSTANTS.ORDER_FILLS_SETTLEMENT_WINDOW,
+                                            max_pages=CONSTANTS.ORDER_FILLS_MAX_PAGES)
+        for update in self._trade_updates(executions, [order]):
+            self._order_tracker.process_trade_update(update)
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         rows, complete = await self._order_rows([tracked_order])
-        return self._order_update_from_rows(tracked_order, rows, complete)
+        row = self._order_row(tracked_order, rows, complete)
+        await self._recover_fills(tracked_order, row)
+        return self._order_update(tracked_order, row)
 
     async def _update_orders_with_error_handler(self, orders: List[InFlightOrder], error_handler):
         # One open-orders read per cycle for all tracked orders, instead of one per order.
@@ -423,13 +448,22 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
             # A lost order already failed its status checks; a miss in the pages read finalizes it as not found.
             lost = order.client_order_id in self._order_tracker.lost_orders
             try:
-                self._order_tracker.process_order_update(self._order_update_from_rows(order, rows, complete or lost))
+                row = self._order_row(order, rows, complete or lost)
             except ReyaOrderHistoryTruncated as error:
                 # Missing from the newest pages only, so not evidence that Reya never received it; the
                 # streams and the next status poll keep tracking it.
                 self.logger().debug(f"{error}; its status is checked again on the next poll.")
+                continue
             except ReyaOrderNotFound as error:
                 await error_handler(order, error)
+                continue
+            try:
+                await self._recover_fills(order, row)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                self.logger().warning(f"Failed to read the fills of Reya order {order.client_order_id}: {error}")
+            self._order_tracker.process_order_update(self._order_update(order, row))
 
     def _trade_updates(self, executions: Iterable[Dict[str, Any]], orders: Iterable[InFlightOrder]) -> List[TradeUpdate]:
         by_exchange_id = {order.exchange_order_id: order for order in orders if order.exchange_order_id}
@@ -533,7 +567,8 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
                 continue
             listed.add(symbol)
             sequence = int(row["lastTradeSequenceNumber"])
-            if sequence < self._position_sequences.get(symbol, 0):
+            applied = self._position_sequences.get(symbol, 0)
+            if sequence < applied or (symbol in self._closed_positions and sequence <= applied):
                 continue
             self._position_sequences[symbol] = sequence
             self._position_change_count += 1
@@ -544,7 +579,9 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
             amount = Decimal(row["qty"])
             if amount == 0:
                 self._perpetual_trading.remove_position(key)
+                self._closed_positions.add(symbol)
                 continue
+            self._closed_positions.discard(symbol)
             previous = self._perpetual_trading.get_position(trading_pair, side)
             # Position records carry no valuation; the last known unrealized PnL is kept for them.
             if row.get("unrealizedPnl") is not None:
@@ -567,6 +604,7 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
                 if changes_before is not None and self._position_changes.get(symbol, 0) > changes_before:
                     continue
                 self._perpetual_trading.remove_position(key)
+                self._closed_positions.add(symbol)
 
     async def _apply_position_valuations(self, rows: Iterable[Dict[str, Any]]):
         """Applies valued positions from the positionRisk channel.
@@ -639,6 +677,9 @@ class ReyaPerpetualDerivative(PerpetualDerivativePyBase):
             order = (self._order_tracker.all_updatable_orders_by_exchange_order_id.get(str(row["orderId"]))
                      or by_client_id.get(str(row.get("clientOrderId"))))
             if order is not None:
+                if not order.exchange_order_id:
+                    # Recovered after a create with an unknown outcome: fills are matched by exchange id.
+                    order.update_exchange_order_id(str(row["orderId"]))
                 self._order_tracker.process_order_update(self._order_update(order, row))
 
     async def _user_stream_event_listener(self):
