@@ -276,21 +276,21 @@ class BingXExchange(ExchangePyBase):
             }
         }
         """
-        trading_pair_rules = exchange_info_dict['data'].get("symbols", [])
-        trading_pair_rules = [item for item in trading_pair_rules if (item.get("symbol") in self.trading_pairs)]
+        trading_pair_rules = exchange_info_dict["data"].get("symbols", [])
+        trading_pair_rules = [
+            item for item in trading_pair_rules
+            if bing_x_utils.is_exchange_information_valid(item)
+        ]
         retval = []
         for rule in trading_pair_rules:
             try:
                 trading_pair = rule.get("symbol")
 
-                last_traded_price = Decimal(str(await self._get_last_traded_price(trading_pair)))
-
                 min_price_increment = Decimal(str(rule.get("tickSize")))
                 min_base_amount_increment = Decimal(str(rule.get("stepSize")))
                 min_notional_size = Decimal(str(rule.get("minNotional")))
-                max_notional_size = Decimal(str(rule.get("maxNotional")))
-                min_order_size = Decimal(min_notional_size / last_traded_price)  # rule.get("minQty") is deprecated for now
-                max_order_size = Decimal(max_notional_size / last_traded_price)  # rule.get("maxQty") is deprecated for now
+                min_order_size = Decimal(str(rule.get("minQty")))
+                max_order_size = Decimal(str(rule.get("maxQty")))
 
                 retval.append(
                     TradingRule(
