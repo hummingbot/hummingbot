@@ -108,12 +108,16 @@ class MQTTCommand:
 
     async def stop_mqtt_async(self,  # type: HummingbotApplication
                               ):
+        start_task = self._mqtt_start_task
+        if start_task is asyncio.current_task():
+            start_task = None
+        gateway = self._mqtt
         start_task_cancelled = False
-        if self._mqtt_start_task is not None and self._mqtt_start_task is not asyncio.current_task():
-            start_task_cancelled = self._mqtt_start_task.cancel()
+        if start_task is not None:
+            start_task_cancelled = start_task.cancel()
             if start_task_cancelled:
-                await asyncio.wait({self._mqtt_start_task})
-        if self._mqtt is not None:
+                await asyncio.wait({start_task})
+        if self._mqtt is not None and self._mqtt is gateway:
             try:
                 self._mqtt.stop()
                 self._mqtt = None
