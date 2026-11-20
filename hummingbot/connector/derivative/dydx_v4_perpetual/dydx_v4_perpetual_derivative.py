@@ -772,6 +772,14 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY]
 
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        """
+        dydx_v4 only supports the ONEWAY position mode and has no exchange endpoint to query it,
+        so report the locally tracked mode. This lets the base class treat a repeated
+        set_position_mode(ONEWAY) request as already satisfied instead of resubmitting it every time.
+        """
+        return self.position_mode
+
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
@@ -795,25 +803,24 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
         """
         if mode != PositionMode.ONEWAY:
+            message = "dydx_v4 only supports the ONEWAY position mode."
             self.trigger_event(
                 AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(
-                    self.current_timestamp, trading_pair, mode, "dydx_v4 only supports the ONEWAY position mode."
-                ),
+                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode, message),
             )
             self.logger().debug(
                 f"dydx_v4 encountered a problem switching position mode to "
                 f"{mode} for {trading_pair}"
                 f" (dydx_v4 only supports the ONEWAY position mode)"
             )
+            return False, message
         else:
-            self._position_mode = PositionMode.ONEWAY
-            super().set_position_mode(PositionMode.ONEWAY)
             self.trigger_event(
                 AccountEvent.PositionModeChangeSucceeded,
                 PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
             )
             self.logger().debug(f"dydx_v4 switching position mode to " f"{mode} for {trading_pair} succeeded.")
+            return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         success = True
