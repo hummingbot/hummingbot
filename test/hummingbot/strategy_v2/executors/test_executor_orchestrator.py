@@ -137,6 +137,34 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.execute_actions(actions)
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
 
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_store_executor_already_auto_stored_is_dropped_without_error(self, markets_recorder_mock):
+        """store_actions_proposal() can request an executor that _auto_store_terminated_executors()
+        already moved out of active_executors into recently_terminated_executors (GitHub #8042), since
+        that deque is still part of the executors report it reads from. Re-requesting it must not
+        re-store it, must not log a "not found" error, and must stop it from being requested again."""
+        mock_recorder = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.return_value = mock_recorder
+
+        position_executor = MagicMock(spec=PositionExecutor)
+        position_executor.is_active = False
+        config_mock = MagicMock(PositionExecutorConfig)
+        config_mock.id = "already_stored"
+        config_mock.controller_id = "test"
+        position_executor.config = config_mock
+
+        self.orchestrator.active_executors["test"] = []
+        self.orchestrator.recently_terminated_executors["test"] = [position_executor]
+        self.orchestrator.cached_performance["test"] = PerformanceReport()
+
+        with patch.object(self.orchestrator, "logger") as logger_mock:
+            actions = [StoreExecutorAction(executor_id="already_stored", controller_id="test")]
+            self.orchestrator.execute_actions(actions)
+            logger_mock.return_value.error.assert_not_called()
+
+        mock_recorder.store_or_update_executor.assert_not_called()
+        self.assertNotIn(position_executor, self.orchestrator.recently_terminated_executors["test"])
+
     @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
     def test_generate_performance_report(self, mock_get_instance):
         # Create a mock for MarketsRecorder and its get_executors_by_controller method

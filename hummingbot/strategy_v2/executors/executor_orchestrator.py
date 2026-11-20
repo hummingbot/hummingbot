@@ -735,6 +735,16 @@ class ExecutorOrchestrator:
             (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
             None)
         if not executor:
+            recently_terminated = self.recently_terminated_executors.get(controller_id)
+            already_stored = next(
+                (executor for executor in recently_terminated or [] if executor.config.id == executor_id), None)
+            if already_stored:
+                # Already persisted by _auto_store_terminated_executors (GitHub #8042); it is still
+                # reported via get_executors_report() for recent-history lookups until it ages out of
+                # the deque, which is why store_actions_proposal() can request it again. Drop it here
+                # instead of re-storing or logging a false "not found" error.
+                recently_terminated.remove(already_stored)
+                return
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
         if executor.is_active:
