@@ -71,7 +71,7 @@ class BybitExchange(ExchangePyBase):
         if self._domain == "bybit_main":
             return "bybit"
         else:
-            return f"bybit_{self._domain}"
+            return self._domain
 
     @property
     def rate_limits_rules(self):
