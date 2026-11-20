@@ -1339,6 +1339,55 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertIn(executor.executor_info, result["test"]["executors"])
 
     @patch.object(MarketsRecorder, "get_instance")
+    def test_get_executors_report_orders_by_timestamp_across_active_and_terminated(self, markets_recorder_mock):
+        """get_executors_report() must keep entries ordered by creation timestamp so the last entry
+        is always the most recently created executor, matching the pre-auto-store behavior where a
+        terminated executor stayed in active_executors (in creation order) until explicitly stored.
+        Controllers that index the report directly for a cooldown check (e.g. hedge_asset) rely on
+        this; concatenating active executors before recently-terminated ones breaks it as soon as a
+        new executor is created after an older one has already been auto-stored into history."""
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+
+        old_config = PositionExecutorConfig(
+            timestamp=1000, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        old_config.id = "old_terminated"
+        old_executor = MagicMock(spec=PositionExecutor)
+        old_executor.config = old_config
+        old_executor.executor_info = ExecutorInfo(
+            id="old_terminated", timestamp=1000, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=old_config,
+            filled_amount_quote=Decimal(0), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0), is_trading=False, is_active=False,
+            custom_info={}, close_type=CloseType.TIME_LIMIT,
+        )
+
+        new_config = PositionExecutorConfig(
+            timestamp=2000, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        new_config.id = "new_active"
+        new_executor = MagicMock(spec=PositionExecutor)
+        new_executor.config = new_config
+        new_executor.executor_info = ExecutorInfo(
+            id="new_active", timestamp=2000, type="position_executor",
+            status=RunnableStatus.RUNNING, config=new_config,
+            filled_amount_quote=Decimal(0), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0), is_trading=True, is_active=True,
+            custom_info={}, close_type=None,
+        )
+
+        # Created after old_executor terminated, so it is active while old_executor already sits in
+        # the recently-terminated deque.
+        self.orchestrator.active_executors["test"] = [new_executor]
+        self.orchestrator.recently_terminated_executors["test"] = [old_executor]
+
+        report = self.orchestrator.get_executors_report()["test"]
+
+        self.assertEqual([info.id for info in report], ["old_terminated", "new_active"])
+
+    @patch.object(MarketsRecorder, "get_instance")
     def test_auto_store_terminated_executors_no_pnl_double_counting(self, markets_recorder_mock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
 

@@ -764,7 +764,9 @@ class ExecutorOrchestrator:
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
         Generate a report of all executors, including recently terminated ones still held in the
-        bounded deque after being auto-stored.
+        bounded deque after being auto-stored. Sorted by creation timestamp so the last entry is
+        always the most recently created executor, matching the pre-auto-store ordering that
+        controllers (e.g. hedge_asset's cooldown check) rely on when indexing the list directly.
         """
         report = {}
         for controller_id, executors_list in self.active_executors.items():
@@ -772,7 +774,7 @@ class ExecutorOrchestrator:
             recently_terminated = [
                 executor.executor_info for executor in self.recently_terminated_executors.get(controller_id, [])
             ]
-            report[controller_id] = active + recently_terminated
+            report[controller_id] = sorted(active + recently_terminated, key=lambda info: info.timestamp)
         return report
 
     def get_positions_report(self) -> Dict[str, List[PositionSummary]]:
