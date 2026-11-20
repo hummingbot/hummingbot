@@ -1,7 +1,7 @@
 import asyncio
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.remote_iface.mqtt import MQTTGateway
@@ -16,6 +16,7 @@ SUBCOMMANDS = ['start', 'stop', 'restart']
 class MQTTCommand:
     _mqtt_sleep_rate_connection_check: float = 1.0
     _mqtt_sleep_rate_autostart_retry: float = 10.0
+    _mqtt_start_task: Optional[asyncio.Task] = None
 
     def mqtt_start(self,  # type: HummingbotApplication
                    timeout: float = 30.0
@@ -46,6 +47,24 @@ class MQTTCommand:
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                timeout: float = 30.0
                                ):
+        if self._mqtt_start_task is not None and not self._mqtt_start_task.done() \
+                and self._mqtt_start_task is not asyncio.current_task():
+            return
+        self._mqtt_start_task = asyncio.current_task()
+        try:
+            await self._start_mqtt_async(timeout)
+        except asyncio.CancelledError:
+            if self._mqtt is not None:
+                self._mqtt.stop()
+                self._mqtt = None
+            raise
+        finally:
+            if self._mqtt_start_task is asyncio.current_task():
+                self._mqtt_start_task = None
+
+    async def _start_mqtt_async(self,  # type: HummingbotApplication
+                                timeout: float = 30.0
+                                ):
         if self._mqtt is None:
             while True:
                 try:
@@ -89,6 +108,11 @@ class MQTTCommand:
 
     async def stop_mqtt_async(self,  # type: HummingbotApplication
                               ):
+        start_task_cancelled = False
+        if self._mqtt_start_task is not None and self._mqtt_start_task is not asyncio.current_task():
+            start_task_cancelled = self._mqtt_start_task.cancel()
+            if start_task_cancelled:
+                await asyncio.wait({self._mqtt_start_task})
         if self._mqtt is not None:
             try:
                 self._mqtt.stop()
@@ -97,6 +121,9 @@ class MQTTCommand:
                 self.notify('MQTT Bridge disconnected')
             except Exception as e:
                 self.logger().error(f'Failed to stop MQTT Bridge: {str(e)}')
+        elif start_task_cancelled:
+            self.logger().info("MQTT Bridge disconnected")
+            self.notify('MQTT Bridge disconnected')
         else:
             self.logger().error("MQTT is already stopped!")
             self.notify('MQTT Bridge is already stopped!')

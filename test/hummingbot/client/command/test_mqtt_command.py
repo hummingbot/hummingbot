@@ -143,3 +143,104 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         )
         mqtt_health_mock.side_effect = lambda: True
         await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")
+
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.health', new_callable=PropertyMock)
+    async def test_mqtt_stop_cancels_pending_autostart_retry(
+        self,
+        mqtt_health_mock: PropertyMock,
+        autostart_retry_mock: PropertyMock,
+    ):
+        mqtt_health_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        autostart_retry_mock.return_value = 1.0
+        prev_autostart = self.client_config_map.mqtt_bridge.mqtt_autostart
+        self.client_config_map.mqtt_bridge.mqtt_autostart = True
+        try:
+            self.hbapp.mqtt_start()
+            await self.async_run_with_timeout(self.resume_test_event.wait())
+            await self.wait_for_logged(
+                "ERROR",
+                f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 1.0 seconds."
+            )
+            await self.hbapp.stop_mqtt_async()
+            await self.wait_for_logged("INFO", "MQTT Bridge disconnected")
+            mqtt_health_mock.side_effect = lambda: True
+            await asyncio.sleep(1.2)
+            self.assertIsNone(self.hbapp._mqtt)
+            self.assertFalse(self._is_logged("INFO", "MQTT Bridge connected with success."))
+        finally:
+            self.client_config_map.mqtt_bridge.mqtt_autostart = prev_autostart
+
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.health', new_callable=PropertyMock)
+    async def test_mqtt_stop_cancels_pending_autostart_retry_after_repeated_start(
+        self,
+        mqtt_health_mock: PropertyMock,
+        autostart_retry_mock: PropertyMock,
+    ):
+        mqtt_health_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        autostart_retry_mock.return_value = 1.0
+        prev_autostart = self.client_config_map.mqtt_bridge.mqtt_autostart
+        self.client_config_map.mqtt_bridge.mqtt_autostart = True
+        try:
+            self.hbapp.mqtt_start()
+            await self.async_run_with_timeout(self.resume_test_event.wait())
+            await self.wait_for_logged(
+                "ERROR",
+                f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 1.0 seconds."
+            )
+            self.hbapp.mqtt_start()
+            await asyncio.sleep(0.1)
+            await self.hbapp.stop_mqtt_async()
+            await self.wait_for_logged("INFO", "MQTT Bridge disconnected")
+            mqtt_health_mock.side_effect = lambda: True
+            await asyncio.sleep(1.2)
+            self.assertIsNone(self.hbapp._mqtt)
+            self.assertFalse(self._is_logged("INFO", "MQTT Bridge connected with success."))
+        finally:
+            self.client_config_map.mqtt_bridge.mqtt_autostart = prev_autostart
+
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.health', new_callable=PropertyMock)
+    async def test_mqtt_restart_during_pending_autostart_retry(
+        self,
+        mqtt_health_mock: PropertyMock,
+        autostart_retry_mock: PropertyMock,
+    ):
+        mqtt_health_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        autostart_retry_mock.return_value = 1.0
+        prev_autostart = self.client_config_map.mqtt_bridge.mqtt_autostart
+        self.client_config_map.mqtt_bridge.mqtt_autostart = True
+        try:
+            self.hbapp.mqtt_start()
+            await self.async_run_with_timeout(self.resume_test_event.wait())
+            await self.wait_for_logged(
+                "ERROR",
+                f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 1.0 seconds."
+            )
+            mqtt_health_mock.side_effect = lambda: True
+            await self.hbapp.restart_mqtt_async()
+            await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")
+            self.assertIsNotNone(self.hbapp._mqtt)
+        finally:
+            self.client_config_map.mqtt_bridge.mqtt_autostart = prev_autostart
+
+    async def test_mqtt_restart_cancelled_while_stopping_pending_start(self):
+        release_start_cancellation = asyncio.Event()
+
+        async def pending_start():
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                await release_start_cancellation.wait()
+                raise
+
+        self.hbapp._mqtt_start_task = asyncio.ensure_future(pending_start())
+        restart_task = asyncio.ensure_future(self.hbapp.restart_mqtt_async())
+        await asyncio.sleep(0.1)
+        restart_task.cancel()
+        release_start_cancellation.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await restart_task
+        self.assertIsNone(self.hbapp._mqtt)
+        self.assertFalse(self._is_logged("INFO", "MQTT Bridge connected with success."))
