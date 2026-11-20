@@ -31,7 +31,7 @@ if [ "$USE_DYDX" = true ]; then
     echo "install dydx version."
 fi
 
-uv sync "${UV_EXTRA[@]}"
+uv sync "${UV_EXTRA[@]}" || { echo "Error: uv sync failed; the environment was not installed." >&2; exit 1; }
 
 # Expose the `hbot` CLI on PATH within the venv.
 ln -sf "$(pwd)/bin/hbot" "$(pwd)/.venv/bin/hbot"

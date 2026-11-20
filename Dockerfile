@@ -71,9 +71,11 @@ ENV BUILD_DATE=${BUILD_DATE}
 
 ENV INSTALLATION_TYPE=docker
 
-# Install system dependencies (the TA-Lib C library ships bundled inside the `ta-lib` wheel)
+# Install system dependencies (the TA-Lib C library ships bundled inside the `ta-lib` wheel).
+# libstdc++6 is what the compiled Cython/C++ extensions link against; the base image already has it
+# (apt depends on it), but it is listed so the image does not rely on that.
 RUN apt-get update && \
-    apt-get install -y sudo libusb-1.0-0 && \
+    apt-get install -y sudo libusb-1.0-0 libstdc++6 && \
     rm -rf /var/lib/apt/lists/*
 
 # Create mount points
