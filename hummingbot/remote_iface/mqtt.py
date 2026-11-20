@@ -566,6 +566,8 @@ class MQTTGateway:
 
         self._heartbeat_interval: float = 10.0
         self._reconnect_interval: float = 5.0
+        self._reconnect_max_interval: float = 60.0
+        self._reconnect_attempt: int = 0
 
         # aiomqtt connection state (all MQTT I/O lives on hb_app.ev_loop).
         self._client: Optional[aiomqtt.Client] = None
@@ -623,13 +625,29 @@ class MQTTGateway:
     # ------------------------------------------------------------------ #
     # Connection / reconnection loop
     # ------------------------------------------------------------------ #
+    def _next_reconnect_delay(self) -> float:
+        # Exponential backoff off the base interval, capped, so a sustained
+        # outage logs with ever-widening gaps instead of once per cycle.
+        delay = min(
+            self._reconnect_interval * (2 ** self._reconnect_attempt),
+            self._reconnect_max_interval,
+        )
+        # Stop growing the exponent once the delay has saturated at the cap:
+        # otherwise a sustained outage keeps doubling 2 ** attempt forever and
+        # eventually raises OverflowError, which would kill the retry loop.
+        if delay < self._reconnect_max_interval:
+            self._reconnect_attempt += 1
+        return delay
+
     async def _run(self):
         while not self._stopped.is_set():
             tasks: List[asyncio.Task] = []
+            reconnect_delay = self._reconnect_interval
             try:
                 async with self._create_client() as client:
                     self._client = client
                     self._connected = True
+                    self._reconnect_attempt = 0
                     for topic, qos in self._desired_subscriptions().items():
                         await client.subscribe(topic, qos=qos)
                     self._hb_app.logger().debug(
@@ -649,13 +667,15 @@ class MQTTGateway:
             except asyncio.CancelledError:
                 raise
             except aiomqtt.MqttError as e:
+                reconnect_delay = self._next_reconnect_delay()
                 self._hb_app.logger().warning(
                     f'MQTT bridge disconnected: {e}. '
-                    f'Reconnecting in {self._reconnect_interval}s.')
+                    f'Reconnecting in {reconnect_delay}s.')
             except Exception as e:  # pragma: no cover
+                reconnect_delay = self._next_reconnect_delay()
                 self._hb_app.logger().error(
                     f'MQTT bridge error: {e}. '
-                    f'Reconnecting in {self._reconnect_interval}s.', exc_info=True)
+                    f'Reconnecting in {reconnect_delay}s.', exc_info=True)
             finally:
                 self._connected = False
                 self._client = None
@@ -665,7 +685,7 @@ class MQTTGateway:
                     await asyncio.gather(*tasks, return_exceptions=True)
             if self._stopped.is_set():
                 break
-            await asyncio.sleep(self._reconnect_interval)
+            await asyncio.sleep(reconnect_delay)
 
     async def _drain_outgoing(self, client: aiomqtt.Client):
         while True:
