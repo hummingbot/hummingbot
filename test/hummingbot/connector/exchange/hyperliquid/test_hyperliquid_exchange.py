@@ -2037,6 +2037,8 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 self.assertEqual(OrderState.FAILED, CONSTANTS.ORDER_STATE[status], status)
             elif status.endswith("Canceled") or status == "scheduledCancel":
                 self.assertEqual(OrderState.CANCELED, CONSTANTS.ORDER_STATE[status], status)
+        # A triggered trigger order becomes a resting or executing order, so it stays open.
+        self.assertEqual(OrderState.OPEN, CONSTANTS.ORDER_STATE["triggered"])
 
     def _process_order_status_update(self, status: str) -> InFlightOrder:
         self.exchange.start_tracking_order(
