@@ -632,7 +632,11 @@ class MQTTGateway:
             self._reconnect_interval * (2 ** self._reconnect_attempt),
             self._reconnect_max_interval,
         )
-        self._reconnect_attempt += 1
+        # Stop growing the exponent once the delay has saturated at the cap:
+        # otherwise a sustained outage keeps doubling 2 ** attempt forever and
+        # eventually raises OverflowError, which would kill the retry loop.
+        if delay < self._reconnect_max_interval:
+            self._reconnect_attempt += 1
         return delay
 
     async def _run(self):

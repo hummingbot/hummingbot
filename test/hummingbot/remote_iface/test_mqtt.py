@@ -655,6 +655,18 @@ class RemoteIfaceMQTTTests(TestCase):
         delays = [self.gateway._next_reconnect_delay() for _ in range(6)]
         self.assertEqual(delays, [5.0, 10.0, 20.0, 40.0, 60.0, 60.0])
 
+    def test_reconnect_backoff_survives_long_outage_without_overflow(self):
+        # A sustained outage must not let the exponent keep growing: once the
+        # delay saturates at the cap, 2 ** attempt should stop climbing, or a
+        # long enough outage raises OverflowError and kills the retry loop.
+        self.gateway._reconnect_interval = 5.0
+        self.gateway._reconnect_max_interval = 60.0
+        self.gateway._reconnect_attempt = 0
+        for _ in range(2000):
+            delay = self.gateway._next_reconnect_delay()
+        self.assertEqual(delay, 60.0)
+        self.assertLess(self.gateway._reconnect_attempt, 1024)
+
     def test_reconnect_backoff_grows_on_outage_then_resets_on_connect(self):
         # The fake broker's connect always succeeds, so force a few failures
         # on connect itself to exercise consecutive-failure growth, then let
