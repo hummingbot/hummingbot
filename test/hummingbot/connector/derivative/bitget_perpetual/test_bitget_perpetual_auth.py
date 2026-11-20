@@ -1,17 +1,15 @@
-import asyncio
 import base64
 import hashlib
 import hmac
-import time
-from typing import Any, Awaitable
-from unittest import TestCase
+import json
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock
 
 from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_auth import BitgetPerpetualAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
-class BitgetPerpetualAuthTests(TestCase):
+class BitgetPerpetualAuthTests(IsolatedAsyncioWrapperTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.api_key = "test_api_key"
@@ -26,86 +24,83 @@ class BitgetPerpetualAuthTests(TestCase):
             passphrase=self.passphrase,
             time_provider=self._time_synchronizer_mock)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1) -> Any:
-        """
-        Run the given coroutine with a timeout.
-        """
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    def _sign(self, payload: str) -> str:
+        return base64.b64encode(
+            hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).digest()
+        ).decode().strip()
 
-        return ret
-
-    def _get_timestamp(self) -> str:
-        return str(int(time.time()))
-
-    def test_add_auth_to_rest_request(self) -> None:
-        """
-        Test that the authentication headers are correctly added to a REST request.
-        """
-        params = {
-            "one": "1"
-        }
+    async def test_add_auth_to_get_request(self) -> None:
         request = RESTRequest(
             method=RESTMethod.GET,
-            url="https://test.url",
-            throttler_limit_id="/api/endpoint",
-            params=params,
+            url="https://api.bitget.com/api/v3/trade/order-info",
+            throttler_limit_id="/api/v3/trade/order-info",
+            params={"orderId": "123"},
             is_auth_required=True,
             headers={},
         )
 
-        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        await self.auth.rest_authenticate(request)
 
-        raw_signature: str = "".join([
-            request.headers.get("ACCESS-TIMESTAMP"),
-            request.method.value,
-            request.throttler_limit_id,
-            "?one=1"
-        ])
-        expected_signature = base64.b64encode(
-            hmac.new(
-                self.secret_key.encode("utf-8"),
-                raw_signature.encode("utf-8"),
-                hashlib.sha256
-            ).digest()
-        ).decode().strip()
-
-        self.assertEqual(1, len(request.params))
-        self.assertEqual("1", request.params.get("one"))
+        timestamp = request.headers["ACCESS-TIMESTAMP"]
+        self.assertAlmostEqual(self._time_synchronizer_mock.time(), int(timestamp) * 1e-3, places=2)
+        self.assertEqual(self.api_key, request.headers["ACCESS-KEY"])
+        self.assertEqual(self.passphrase, request.headers["ACCESS-PASSPHRASE"])
         self.assertEqual(
-            self._time_synchronizer_mock.time(),
-            int(request.headers.get("ACCESS-TIMESTAMP")) * 1e-3
+            self._sign(f"{timestamp}GET/api/v3/trade/order-info?orderId=123"),
+            request.headers["ACCESS-SIGN"],
         )
-        self.assertEqual(self.api_key, request.headers.get("ACCESS-KEY"))
-        self.assertEqual(expected_signature, request.headers.get("ACCESS-SIGN"))
+        self.assertEqual({"orderId": "123"}, request.params)
+
+    async def test_add_auth_to_post_request_signs_the_body(self) -> None:
+        body = json.dumps({"clientOid": "1"})
+        request = RESTRequest(
+            method=RESTMethod.POST,
+            url="https://api.bitget.com/api/v3/trade/cancel-order",
+            throttler_limit_id="/api/v3/trade/cancel-order",
+            data=body,
+            is_auth_required=True,
+            headers={},
+        )
+
+        await self.auth.rest_authenticate(request)
+
+        timestamp = request.headers["ACCESS-TIMESTAMP"]
+        self.assertEqual(
+            self._sign(f"{timestamp}POST/api/v3/trade/cancel-order{body}"),
+            request.headers["ACCESS-SIGN"],
+        )
+
+    async def test_signature_uses_the_request_path_not_the_throttler_limit_id(self) -> None:
+        request = RESTRequest(
+            method=RESTMethod.GET,
+            url="https://api.bitget.com/api/v3/trade/fills",
+            throttler_limit_id="shared-trade-bucket",
+            params={"orderId": "123"},
+            is_auth_required=True,
+            headers={},
+        )
+
+        await self.auth.rest_authenticate(request)
+
+        timestamp = request.headers["ACCESS-TIMESTAMP"]
+        self.assertEqual(
+            self._sign(f"{timestamp}GET/api/v3/trade/fills?orderId=123"),
+            request.headers["ACCESS-SIGN"],
+        )
 
     def test_ws_auth_payload(self) -> None:
-        """
-        Test that the authentication payload is correctly generated.
-        """
         payload = self.auth.get_ws_auth_payload()
 
-        raw_signature = str(int(self._time_synchronizer_mock.time())) + "GET/user/verify"
-        expected_signature = base64.b64encode(
-            hmac.new(
-                self.secret_key.encode("utf-8"),
-                raw_signature.encode("utf-8"),
-                hashlib.sha256
-            ).digest()
-        ).decode().strip()
-
+        timestamp = str(int(self._time_synchronizer_mock.time()))
         self.assertEqual(self.api_key, payload["apiKey"])
-        self.assertEqual(str(int(self._time_synchronizer_mock.time())), payload["timestamp"])
-        self.assertEqual(expected_signature, payload["sign"])
+        self.assertEqual(self.passphrase, payload["passphrase"])
+        self.assertEqual(timestamp, payload["timestamp"])
+        self.assertEqual(self._sign(f"{timestamp}GET/user/verify"), payload["sign"])
 
-    def test_no_auth_added_to_ws_request(self) -> None:
-        """
-        Test ws request without authentication.
-        """
-        payload = {
-            "one": "1"
-        }
+    async def test_no_auth_added_to_ws_request(self) -> None:
+        payload = {"one": "1"}
         request = WSJSONRequest(payload=payload, is_auth_required=True)
 
-        self.async_run_with_timeout(self.auth.ws_authenticate(request))
+        await self.auth.ws_authenticate(request)
 
         self.assertEqual(payload, request.payload)
