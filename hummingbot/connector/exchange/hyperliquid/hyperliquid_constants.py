@@ -70,6 +70,8 @@ DIFF_EVENT_TYPE = "order_book_snapshot"
 TRADE_EVENT_TYPE = "trades"
 
 # Order Statuses
+# Every order status documented in https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
+# ("Query order status by oid or cloid"). A status missing here raises KeyError in the order update handlers.
 ORDER_STATE = {
     "open": OrderState.OPEN,
     "resting": OrderState.OPEN,
@@ -80,10 +82,28 @@ ORDER_STATE = {
     "minTradeNtlRejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
     "reduceOnlyRejected": OrderState.FAILED,
+    "perpMarginRejected": OrderState.FAILED,
     "selfTradeCanceled": OrderState.CANCELED,
     "siblingFilledCanceled": OrderState.CANCELED,
     "delistedCanceled": OrderState.CANCELED,
     "liquidatedCanceled": OrderState.CANCELED,
+    # A trigger order that fired: it now rests on the book (or fills) like a regular order.
+    "triggered": OrderState.OPEN,
+    "marginCanceled": OrderState.CANCELED,
+    "vaultWithdrawalCanceled": OrderState.CANCELED,
+    "openInterestCapCanceled": OrderState.CANCELED,
+    "scheduledCancel": OrderState.CANCELED,
+    "tickRejected": OrderState.FAILED,
+    "iocCancelRejected": OrderState.FAILED,
+    "badTriggerPxRejected": OrderState.FAILED,
+    "marketOrderNoLiquidityRejected": OrderState.FAILED,
+    "positionIncreaseAtOpenInterestCapRejected": OrderState.FAILED,
+    "positionFlipAtOpenInterestCapRejected": OrderState.FAILED,
+    "tooAggressiveAtOpenInterestCapRejected": OrderState.FAILED,
+    "openInterestIncreaseRejected": OrderState.FAILED,
+    "insufficientSpotBalanceRejected": OrderState.FAILED,
+    "oracleRejected": OrderState.FAILED,
+    "perpMaxPositionRejected": OrderState.FAILED,
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
