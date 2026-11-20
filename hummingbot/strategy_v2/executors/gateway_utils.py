@@ -242,6 +242,26 @@ def is_slippage_failure(error: BaseException) -> bool:
     return SLIPPAGE_ERROR_CODE in str(error)
 
 
+# Gateway's machine-readable code for a transaction whose outcome could not be
+# proven either way (broadcast, then still pending when the poll deadline hit).
+# Unlike a slippage rejection, this does NOT mean the operation failed - it may
+# still land. Retrying blind risks running the operation twice.
+UNRESOLVED_ERROR_CODE = "TX_UNRESOLVED"
+
+
+def is_unresolved_failure(error: BaseException) -> bool:
+    """True when Gateway could not prove this transaction failed.
+
+    A caller must not treat this like an ordinary failure and resubmit on a timer:
+    the first transaction may still confirm on-chain after this result was returned,
+    and a second submission then executes the same operation twice (e.g. withdrawing
+    or swapping the same funds again).
+    """
+    if getattr(error, "code", None) == UNRESOLVED_ERROR_CODE:
+        return True
+    return UNRESOLVED_ERROR_CODE in str(error)
+
+
 def next_slippage_pct(
     current: Decimal,
     multiplier: Decimal,

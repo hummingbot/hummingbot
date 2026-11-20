@@ -130,6 +130,12 @@ class Gateway(GatewayBase):
         super().__init__(*args, **kwargs)
         # Store LP operation metadata for triggering proper events
         self._lp_orders_metadata: Dict[str, Dict] = {}
+        # order_id -> tx fee for a confirmed AMM add/remove-liquidity call. Kept apart
+        # from _lp_orders_metadata: that dict's consumer (_trigger_lp_events_if_needed)
+        # requires CLMM-only keys (lower_price/upper_price, a range position address)
+        # that a full-range AMM deposit has none of - populating it here would crash
+        # the next order-status poll with a KeyError instead of firing an event.
+        self._amm_lp_tx_fees: Dict[str, Decimal] = {}
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
@@ -1073,6 +1079,9 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                data = transaction_result.get("data", {})
+                fee = data.get("fee", transaction_result.get("fee", 0))
+                self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -1335,6 +1344,9 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                data = transaction_result.get("data", {})
+                fee = data.get("fee", transaction_result.get("fee", 0))
+                self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
