@@ -108,6 +108,10 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
+            err_msg = str(event_message["error"])
+            if "expired token" in err_msg.lower() or "invalid auth" in err_msg.lower():
+                if hasattr(self._auth, "invalidate_auth_token"):
+                    self._auth.invalidate_auth_token()
             raise IOError(f"Lighter private websocket error: {event_message['error']}")
 
         channel = str(event_message.get("channel", ""))
