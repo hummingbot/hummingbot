@@ -3,18 +3,34 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bitget"
-DEFAULT_DOMAIN = "bitget.com"
-REST_SUBDOMAIN = "api"
-WSS_SUBDOMAIN = "ws"
+DEFAULT_DOMAIN = EXCHANGE_NAME
+REST_URLS = {DEFAULT_DOMAIN: "https://api.bitget.com"}
+WSS_URLS = {DEFAULT_DOMAIN: "wss://ws.bitget.com"}
 DEFAULT_TIME_IN_FORCE = "gtc"
-# Post-only (maker-only) "force" value, used for LIMIT_MAKER orders.
+# V3 UTA post-only (maker-only) timeInForce, used for LIMIT_MAKER orders.
 POST_ONLY_TIME_IN_FORCE = "post_only"
+
+# UTA (Unified Trading Account, V3 API). The spot connector trades the "SPOT" category of the
+# unified account. REST requests use the upper-case category ("SPOT"). V3 websocket subscriptions
+# use {instType, topic, symbol}: public subscriptions use the lower-case product type ("spot"),
+# while private (account) subscriptions use the "UTA" instType.
+CATEGORY = "SPOT"
+INST_TYPE_PUBLIC = "spot"
+INST_TYPE_UTA = "UTA"
+
+# V3 instruments listing state; only an online instrument accepts orders.
+INSTRUMENT_STATUS_ONLINE = "online"
+
+# Upper bound on cursor-paginated reads, so a cursor that never terminates cannot spin.
+MAX_PAGINATION_PAGES = 20
+# Rows requested per page; a shorter page means the last one.
+PAGINATION_LIMIT = 100
 
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
 
-WSS_PUBLIC_ENDPOINT = "/v2/ws/public"
-WSS_PRIVATE_ENDPOINT = "/v2/ws/private"
+WSS_PUBLIC_ENDPOINT = "/v3/ws/public"
+WSS_PRIVATE_ENDPOINT = "/v3/ws/private"
 
 TRADE_TYPES = {
     TradeType.BUY: "buy",
@@ -25,40 +41,72 @@ ORDER_TYPES = {
     OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
+# Order status strings of both APIs (V3 "orderStatus", V2 "status"). "live"/"new" -> open,
+# "cancelled"/"canceled" are both tolerated since Bitget has used both spellings across API versions.
 STATE_TYPES = {
     "live": OrderState.OPEN,
+    "new": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
+    "partial_fill": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED,
 }
 
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-PUBLIC_ORDERBOOK_ENDPOINT = "/api/v2/spot/market/orderbook"
-PUBLIC_SYMBOLS_ENDPOINT = "/api/v2/spot/public/symbols"
-PUBLIC_TICKERS_ENDPOINT = "/api/v2/spot/market/tickers"
-PUBLIC_TIME_ENDPOINT = "/api/v2/public/time"
+# Public (market data) V3 endpoints
+PUBLIC_ORDERBOOK_ENDPOINT = "/api/v3/market/orderbook"
+PUBLIC_SYMBOLS_ENDPOINT = "/api/v3/market/instruments"
+PUBLIC_TICKERS_ENDPOINT = "/api/v3/market/tickers"
+PUBLIC_TIME_ENDPOINT = "/api/v3/market/time"
 
-ASSETS_ENDPOINT = "/api/v2/spot/account/assets"
-CANCEL_ORDER_ENDPOINT = "/api/v2/spot/trade/cancel-order"
-ORDER_INFO_ENDPOINT = "/api/v2/spot/trade/orderInfo"
-PLACE_ORDER_ENDPOINT = "/api/v2/spot/trade/place-order"
-USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
+# Private (account/trade) V3 endpoints
+ASSETS_ENDPOINT = "/api/v3/account/assets"
+USER_INFO_ENDPOINT = "/api/v3/account/info"
+FEE_RATE_ENDPOINT = "/api/v3/account/fee-rate"
+CANCEL_ORDER_ENDPOINT = "/api/v3/trade/cancel-order"
+ORDER_INFO_ENDPOINT = "/api/v3/trade/order-info"
+PLACE_ORDER_ENDPOINT = "/api/v3/trade/place-order"
+USER_FILLS_ENDPOINT = "/api/v3/trade/fills"
+
+# Classic (not upgraded to UTA) accounts trade through the V2 API. Market data comes from the V3 public
+# endpoints above whatever the account mode; only these private calls, and the fee rates, differ.
+CLASSIC_PUBLIC_SYMBOLS_ENDPOINT = "/api/v2/spot/public/symbols"
+CLASSIC_ASSETS_ENDPOINT = "/api/v2/spot/account/assets"
+CLASSIC_CANCEL_ORDER_ENDPOINT = "/api/v2/spot/trade/cancel-order"
+CLASSIC_ORDER_INFO_ENDPOINT = "/api/v2/spot/trade/orderInfo"
+CLASSIC_PLACE_ORDER_ENDPOINT = "/api/v2/spot/trade/place-order"
+CLASSIC_USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
+CLASSIC_WSS_PRIVATE_ENDPOINT = "/v2/ws/private"
+CLASSIC_INST_TYPE = "SPOT"
+CLASSIC_WS_ORDERS_ENDPOINT = "orders"
+CLASSIC_WS_ACCOUNT_ENDPOINT = "account"
+CLASSIC_WS_FILL_ENDPOINT = "fill"
 
 API_CODE = "bntva"
 
 PUBLIC_WS_BOOKS = "books"
-PUBLIC_WS_TRADE = "trade"
+PUBLIC_WS_TRADE = "publicTrade"
 
 PUBLIC_WS_PING_REQUEST = "ping"
 PUBLIC_WS_PONG_RESPONSE = "pong"
 
-WS_ORDERS_ENDPOINT = "orders"
+# V3 UTA private websocket channels (singular under UTA)
+WS_ORDERS_ENDPOINT = "order"
 WS_ACCOUNT_ENDPOINT = "account"
 WS_FILL_ENDPOINT = "fill"
 
 RET_CODE_OK = "00000"
+# Returned by the V3 UTA endpoints when the account has not been upgraded to the Unified Trading
+# Account: "You are in Classic Account mode, and the Unified Account API is not supported at this time".
+# This is how the connector tells a Classic account from a UTA one.
+RET_CODE_CLASSIC_ACCOUNT = "40084"
+# Pause between account mode reads while the user stream listener waits for the first one to succeed.
+ACCOUNT_MODE_RETRY_INTERVAL_SECONDS = 5.0
+# Pause before restarting the private websocket after Bitget rejects a subscription.
+WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS = 10.0
 RET_CODE_CHANNEL_NOT_EXIST = "30001"
 RET_CODE_ILLEGAL_REQUEST = "30002"
 RET_CODE_INVALID_OP = "30003"
@@ -73,7 +121,9 @@ RET_CODE_REQUEST_TIMESTAMP_EXPIRED = "30014"
 RET_CODE_INVALID_SIGNATURE = "30015"
 RET_CODE_PARAM_ERROR = "30016"
 
+# No bare HTTP 404 here: Bitget answers an unknown path with 404/40404, which says nothing about the order
 RET_CODES_ORDER_NOT_EXISTS = [
+    "25204",
     "40768", "80011", "40819",
     "43020", "43025", "43001",
     "45057", "31007", "43033"
@@ -86,8 +136,17 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_TIME_ENDPOINT, limit=10, time_interval=1),
 
     RateLimit(limit_id=ASSETS_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=USER_INFO_ENDPOINT, limit=1, time_interval=1),
+    RateLimit(limit_id=FEE_RATE_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=CANCEL_ORDER_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ORDER_INFO_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PLACE_ORDER_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=USER_FILLS_ENDPOINT, limit=10, time_interval=1),
+
+    RateLimit(limit_id=CLASSIC_PUBLIC_SYMBOLS_ENDPOINT, limit=20, time_interval=1),
+    RateLimit(limit_id=CLASSIC_ASSETS_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=CLASSIC_CANCEL_ORDER_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=CLASSIC_ORDER_INFO_ENDPOINT, limit=20, time_interval=1),
+    RateLimit(limit_id=CLASSIC_PLACE_ORDER_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=CLASSIC_USER_FILLS_ENDPOINT, limit=10, time_interval=1),
 ]

@@ -10,6 +10,8 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_dat
     OkxPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.data_types import WSPlainTextRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -212,3 +214,69 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(messages))
             await self.listening_task
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_filters_out_pong_reply(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, self._authentication_response(True)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "pong")
+        account_event = {
+            "arg": {"channel": CONSTANTS.WS_ACCOUNT_CHANNEL},
+            "data": [{"totalEq": "100"}],
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(account_event))
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
+        )
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertEqual(1, msg_queue.qsize())
+        self.assertEqual(account_event, msg_queue.get_nowait())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_queues_error_reply_without_data_key(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, self._authentication_response(True)
+        )
+        error_event = {"event": "error", "code": "60012", "msg": "Invalid request"}
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(error_event))
+        account_event = {
+            "arg": {"channel": CONSTANTS.WS_ACCOUNT_CHANNEL},
+            "data": [{"totalEq": "100"}],
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(account_event))
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
+        )
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertEqual(2, msg_queue.qsize())
+        self.assertEqual(error_event, msg_queue.get_nowait())
+        self.assertEqual(account_event, msg_queue.get_nowait())
+
+    async def test_process_websocket_messages_sends_plain_text_ping_on_timeout(self):
+        ws_mock = AsyncMock(spec=WSAssistant)
+        ws_mock.send = AsyncMock(side_effect=asyncio.CancelledError)
+        queue = asyncio.Queue()
+
+        with patch(
+            "hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_data_source."
+            "UserStreamTrackerDataSource._process_websocket_messages",
+            side_effect=asyncio.TimeoutError,
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.data_source._process_websocket_messages(
+                    websocket_assistant=ws_mock, queue=queue)
+
+        sent_request = ws_mock.send.call_args.args[0]
+        self.assertIsInstance(sent_request, WSPlainTextRequest)
+        self.assertEqual("ping", sent_request.payload)
