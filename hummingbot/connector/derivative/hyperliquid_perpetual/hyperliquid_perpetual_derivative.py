@@ -197,6 +197,18 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
+    @staticmethod
+    def _price_increment(sz_decimals) -> Decimal:
+        """
+        Price tick of a Hyperliquid perpetual: at most ``PERP_MAX_PRICE_DECIMALS - szDecimals`` decimal
+        places (the 5 significant figures are applied in ``quantize_order_price``).
+
+        It must not be derived from the markPx string: that string drops trailing zeros, so a mark of
+        exactly 0.6 on a szDecimals=1 market (tick 0.00001) reads as "0.6" and gives a 0.1 tick, and an
+        integer mark ("60") has no decimal part at all.
+        """
+        return Decimal(1).scaleb(-(CONSTANTS.PERP_MAX_PRICE_DECIMALS - int(sz_decimals)))
+
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
         Align price to Hyperliquid's limitPx rules: at most 5 significant figures
@@ -206,8 +218,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         szDecimals=1, so it accepts 5 decimals, but a market order priced at
         BestBid * 1.05 quantizes to 0.094605 and the exchange rejects it with
         "Order has invalid price." Rounding to min_price_increment fixes that:
-        the increment is derived from the markPx decimals, which for perpetuals
-        is never finer than szDecimals allows.
+        the increment is ``10 ** -(MAX_DECIMALS - szDecimals)`` (``_price_increment``).
         """
         # HL allows at most 5 significant figures on limitPx
         price = Decimal(str(float(f"{price:.5g}")))
@@ -1040,7 +1051,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_symbol)
                 step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
 
-                price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+                price_size = self._price_increment(coin_info["szDecimals"])
                 min_order_size = step_size
                 collateral_token = CONSTANTS.CURRENCY
                 return_val.append(
@@ -1067,7 +1078,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_name)
 
                 step_size = Decimal(str(10 ** -dex_info.get("szDecimals")))
-                price_size = Decimal(str(10 ** -len(dex_info.get("markPx").split('.')[1])))
+                price_size = self._price_increment(dex_info["szDecimals"])
                 min_order_size = step_size
                 collateral_token = quote
 
