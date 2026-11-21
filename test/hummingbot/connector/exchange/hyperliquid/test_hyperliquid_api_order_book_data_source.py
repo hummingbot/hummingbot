@@ -219,6 +219,30 @@ class HyperliquidAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(IOError):
             await self.data_source.get_new_order_book(self.trading_pair)
 
+    @aioresponses()
+    async def test_order_book_snapshot_timestamp_is_scaled_to_seconds(self, mock_api):
+        """Regression: REST snapshot path used to pass `snapshot['time']`
+        (Hyperliquid returns it in milliseconds) directly as the
+        OrderBookMessage timestamp, leaving the value ~1000x larger than the WS
+        diff/snapshot paths which already scaled by 1e-3. The fix multiplies by
+        1e-3 to match the other paths.
+        """
+        self._simulate_trading_rules_initialized()
+        endpoint = CONSTANTS.SNAPSHOT_REST_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_rest_snapshot_msg()
+        raw_ts_ms = resp["time"]
+        mock_api.post(regex_url, body=json.dumps(resp))
+
+        snapshot_msg = await self.data_source._order_book_snapshot(self.trading_pair)
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_msg.type)
+        self.assertAlmostEqual(raw_ts_ms / 1000.0, snapshot_msg.timestamp, places=3)
+        # Sanity-check: the timestamp is plausibly a recent Unix second, not a
+        # 13-digit millisecond value that would land beyond the year 56000.
+        self.assertLess(snapshot_msg.timestamp, 10 ** 11)
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_orderbooks(self, ws_connect_mock):
         self._simulate_trading_rules_initialized()

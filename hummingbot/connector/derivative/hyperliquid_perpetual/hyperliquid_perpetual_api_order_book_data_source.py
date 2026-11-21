@@ -140,12 +140,19 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_response.update({"trading_pair": trading_pair})
+        # Hyperliquid returns `time` in milliseconds; the WS paths in this file
+        # (_parse_order_book_diff_message, _parse_order_book_snapshot_message,
+        # _parse_trade_message) already convert with `* 1e-3` before populating
+        # OrderBookMessage.timestamp, but the REST snapshot path was passing the
+        # raw millisecond value through, leaving the snapshot's timestamp
+        # ~1000x larger than every WS source.
+        snapshot_timestamp: float = int(snapshot_response['time']) * 1e-3
         snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": snapshot_response["trading_pair"],
             "update_id": int(snapshot_response['time']),
             "bids": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][0]],
             "asks": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][1]],
-        }, timestamp=int(snapshot_response['time']))
+        }, timestamp=snapshot_timestamp)
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
