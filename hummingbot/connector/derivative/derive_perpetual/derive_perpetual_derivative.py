@@ -680,9 +680,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
-        hex_order_id = f"0x{md5.hexdigest()}"
+        hasher = hashlib.sha256()
+        hasher.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{hasher.hexdigest()}"
         if order_type is OrderType.MARKET:
             # Priced at the bare mid, an IOC market buy cannot cross the spread and simply does
             # not fill. Cross by the same slippage buffer the spot connector uses.
@@ -720,9 +720,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
-        hex_order_id = f"0x{md5.hexdigest()}"
+        hasher = hashlib.sha256()
+        hasher.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{hasher.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
             market_price = mid_price * (Decimal("1") - Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
