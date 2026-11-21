@@ -162,7 +162,19 @@ class ConnectorManager:
 
     def get_connector(self, connector_name: str) -> Optional[ExchangeBase]:
         """Get a connector by name."""
-        return self.connectors.get(connector_name)
+        connector = self.connectors.get(connector_name)
+        if connector is not None:
+            return connector
+
+        matches = [
+            connector
+            for connector in self.connectors.values()
+            if connector_name in {
+                getattr(connector, "name", None),
+                getattr(connector, "display_name", None),
+            }
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def get_all_connectors(self) -> Dict[str, ExchangeBase]:
         """Get all active connectors."""

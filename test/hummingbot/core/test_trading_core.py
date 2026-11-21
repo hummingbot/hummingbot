@@ -534,6 +534,21 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(balances["USDT"], Decimal("5000.0"))
         self.mock_connector.get_all_balances.assert_called_once()
 
+    async def test_get_current_balances_with_ready_connector_alias(self):
+        """Test get_current_balances resolves emitted connector names."""
+        self.mock_connector.name = "binance_perpetual"
+        self.mock_connector.display_name = "binance_perpetual"
+        self.mock_connector.ready = True
+        self.mock_connector.get_all_balances.return_value = {
+            "USDT": Decimal("5000.0")
+        }
+        self.trading_core.connector_manager.connectors["binance_perpetual_testnet"] = self.mock_connector
+
+        balances = await self.trading_core.get_current_balances("binance_perpetual")
+
+        self.assertEqual(balances["USDT"], Decimal("5000.0"))
+        self.mock_connector.get_all_balances.assert_called_once()
+
     async def test_get_current_balances_paper_trade(self):
         """Test get_current_balances for paper trade"""
         # Set up paper trade balances
@@ -669,6 +684,34 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
 
             # Verify PerformanceMetrics.create was called correctly
             self.assertEqual(mock_perf_metrics_class.create.call_count, 2)
+
+    @patch("hummingbot.core.trading_core.PerformanceMetrics")
+    async def test_calculate_performance_metrics_resolves_trade_fill_market_alias(self, mock_perf_metrics_class):
+        """Test performance metrics resolve emitted connector names from trade fills."""
+        self.mock_connector.name = "binance_perpetual"
+        self.mock_connector.display_name = "binance_perpetual"
+        self.mock_connector.ready = True
+        self.mock_connector.get_all_balances.return_value = {
+            "USDT": Decimal("5000.0")
+        }
+        self.trading_core.connector_manager.connectors["binance_perpetual_testnet"] = self.mock_connector
+
+        trade = Mock(spec=TradeFill)
+        trade.market = "binance_perpetual"
+        trade.symbol = "BTC-USDT"
+
+        mock_perf = Mock()
+        mock_perf_metrics_class.create = AsyncMock(return_value=mock_perf)
+
+        result = await self.trading_core.calculate_performance_metrics_by_connector_pair([trade])
+
+        self.assertEqual([mock_perf], result)
+        self.mock_connector.get_all_balances.assert_called_once()
+        mock_perf_metrics_class.create.assert_awaited_once_with(
+            "BTC-USDT",
+            [trade],
+            {"USDT": Decimal("5000.0")},
+        )
 
     @patch("hummingbot.core.trading_core.PerformanceMetrics")
     async def test_calculate_performance_metrics_timeout(self, mock_perf_metrics_class):
