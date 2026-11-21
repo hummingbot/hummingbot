@@ -267,7 +267,13 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         snapshot_data = snapshot_response["result"]
-        timestamp = float(snapshot_data["ts"])
+        # Bybit V5 returns the snapshot's `ts` field in milliseconds; the other
+        # paths in this file (_parse_order_book_diff_message, _parse_trade_message,
+        # _parse_funding_info_message) already convert to seconds, but the REST
+        # snapshot path was passing raw milliseconds straight through as the
+        # OrderBookMessage timestamp, leaving it ~1000x larger than every other
+        # source and breaking ordering against WS diffs.
+        timestamp = float(snapshot_data["ts"]) * 1e-3
         update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
