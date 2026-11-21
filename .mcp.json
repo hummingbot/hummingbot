@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "hummingbot-manager": {
+      "command": "uv",
+      "args": ["run", "--with", "mcp[cli]", "--with", "pyyaml", "python", "mcp_server.py"],
+      "cwd": "/Users/dman/Documents/work/hummingbot"
+    }
+  }
+}
