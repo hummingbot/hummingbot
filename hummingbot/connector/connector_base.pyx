@@ -1,5 +1,6 @@
 import asyncio
 import time
+from collections import deque
 from decimal import Decimal
 from typing import Dict, List, Set, Tuple, TYPE_CHECKING, Union, Optional
 
@@ -56,6 +57,9 @@ cdef class ConnectorBase(NetworkIterator):
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
         self._current_trade_fills = set()
+        # Tracks insertion order of _current_trade_fills so the cache can be bounded by
+        # evicting the oldest fills first (the recent ones are the ones still re-polled).
+        self._trade_fills_order = deque()
         self._exchange_order_ids = dict()
         self._trade_fee_schema = None
         self._balance_asset_limit: Dict[str, Dict[str, object]] = balance_asset_limit or dict()
@@ -490,11 +494,26 @@ cdef class ConnectorBase(NetworkIterator):
     def available_balances(self) -> Dict[str, Decimal]:
         return self._account_available_balances
 
+    _TRADE_FILLS_CACHE_MAX_SIZE = 10_000
+
     def add_trade_fills_from_market_recorder(self, current_trade_fills: Set[TradeFillOrderDetails]):
         """
         Gets updates from new records in TradeFill table. This is used in method is_confirmed_new_order_filled_event
         """
-        self._current_trade_fills.update(current_trade_fills)
+        for trade_fill in current_trade_fills:
+            if trade_fill not in self._current_trade_fills:
+                self._current_trade_fills.add(trade_fill)
+                self._trade_fills_order.append(trade_fill)
+        if len(self._current_trade_fills) > self._TRADE_FILLS_CACHE_MAX_SIZE:
+            target_size = self._TRADE_FILLS_CACHE_MAX_SIZE // 2
+            # Evict the oldest fills first. Recently seen fills are the ones still within the
+            # exchange polling window, so keeping them avoids re-triggering duplicate fill events.
+            while len(self._current_trade_fills) > target_size and self._trade_fills_order:
+                self._current_trade_fills.discard(self._trade_fills_order.popleft())
+            # Fallback for fills added straight to the set (e.g. connectors that bypass the
+            # ordered cache): drop arbitrary entries so the cache still honors its hard limit.
+            while len(self._current_trade_fills) > target_size:
+                self._current_trade_fills.pop()
 
     def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Dict[str, str]):
         """
