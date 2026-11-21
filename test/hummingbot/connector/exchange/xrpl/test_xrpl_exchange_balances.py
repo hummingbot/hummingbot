@@ -236,6 +236,62 @@ class TestXRPLExchangeBalances(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         locked = self.connector._calculate_locked_balance_for_token("XRP")
         self.assertEqual(locked, Decimal("0"))
 
+    def test_calculate_locked_balance_market_order_nan_price_skipped(self):
+        """A market order's price is NaN, not None or zero -- it must still be skipped.
+
+        The test above uses Decimal("0") to stand in for a market order, which is not the value
+        the framework actually produces: OrderCandidate/market orders carry Decimal("NaN"). With
+        NaN the BUY branch computes remaining_amount * NaN, so locked_amount becomes NaN and the
+        caller's max(Decimal("0"), balance - locked) raises InvalidOperation, aborting the whole
+        balance update rather than this one order.
+        """
+        order = InFlightOrder(
+            client_order_id="test_market_nan",
+            exchange_order_id="12345-67890",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("NaN"),
+            creation_timestamp=1000000,
+            initial_state=OrderState.OPEN,
+        )
+        self.connector._order_tracker._in_flight_orders["test_market_nan"] = order
+
+        locked = self.connector._calculate_locked_balance_for_token("XRP")
+        self.assertTrue(locked.is_finite(), "locked balance must not be NaN")
+        self.assertEqual(locked, Decimal("0"))
+
+    def test_calculate_locked_balance_nan_order_does_not_hide_other_orders(self):
+        """One NaN-priced order must not take the other orders' locked amounts with it."""
+        limit_order = InFlightOrder(
+            client_order_id="limit_buy",
+            exchange_order_id="111-222",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("0.2"),
+            creation_timestamp=1000000,
+            initial_state=OrderState.OPEN,
+        )
+        market_order = InFlightOrder(
+            client_order_id="market_buy",
+            exchange_order_id="333-444",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("50"),
+            price=Decimal("NaN"),
+            creation_timestamp=1000000,
+            initial_state=OrderState.OPEN,
+        )
+        self.connector._order_tracker._in_flight_orders["limit_buy"] = limit_order
+        self.connector._order_tracker._in_flight_orders["market_buy"] = market_order
+
+        locked = self.connector._calculate_locked_balance_for_token("XRP")
+        self.assertEqual(locked, Decimal("20"))  # 100 * 0.2, the market order contributing nothing
+
     def test_calculate_locked_balance_multiple_orders(self):
         """New: multiple orders accumulate locked balances."""
         order1 = InFlightOrder(
