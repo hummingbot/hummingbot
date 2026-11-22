@@ -1,0 +1,27 @@
+name: Fork Sync With Upstream
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: "master"
+          persist-credentials: false
+
+      - name: Merge changes from upstream
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.3
+        with:
+          target_sync_branch: "master"
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          upstream_sync_repo: "hummingbot/hummingbot"
+          upstream_sync_branch: "master"
+          upstream_pull_args: --no-rebase
