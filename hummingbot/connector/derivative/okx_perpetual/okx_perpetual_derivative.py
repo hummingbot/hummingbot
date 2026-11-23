@@ -650,7 +650,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def get_position_side(position_msg: Dict[str, Any]) -> PositionSide:
         if position_msg.get("posSide") == "net":
-            position_side = PositionSide.LONG if int(position_msg["pos"]) > 0 else PositionSide.SHORT
+            position_side = PositionSide.LONG if Decimal(position_msg["pos"]) > 0 else PositionSide.SHORT
         else:
             position_side = PositionSide.LONG if position_msg.get("posSide") == "long" else PositionSide.SHORT
         return position_side
