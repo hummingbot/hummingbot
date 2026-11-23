@@ -11,6 +11,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
+from hummingbot.core.rate_oracle.sources.coin_paprika_rate_source import CoinPaprikaRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.rate_oracle.utils import find_rate
 
@@ -136,6 +137,8 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         rate_oracle = RateOracle.get_instance()
         config_map.rate_oracle_source = "coin_gecko"
         self.assertEqual(type(rate_oracle.source), CoinGeckoRateSource)
+        config_map.rate_oracle_source = "coin_paprika"
+        self.assertEqual(type(rate_oracle.source), CoinPaprikaRateSource)
 
     def test_rate_oracle_single_instance_prices_reset_after_global_token_change(self):
         config_map = ClientConfigAdapter(ClientConfigMap())
