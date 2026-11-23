@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import math
 import re
 import time
 from copy import deepcopy
@@ -683,12 +684,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        if order_type is OrderType.MARKET:
-            # Priced at the bare mid, an IOC market buy cannot cross the spread and simply does
-            # not fill. Cross by the same slippage buffer the spot connector uses.
-            mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * (Decimal("1") + Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
-            price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -723,10 +718,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * (Decimal("1") - Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
-            price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
@@ -737,6 +728,136 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             price=price,
             **kwargs))
         return hex_order_id
+
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            order_id: str,
+                            trading_pair: str,
+                            amount: Decimal,
+                            order_type: OrderType,
+                            price: Optional[Decimal] = None,
+                            **kwargs):
+        """
+        Prices market orders before they are created. buy() and sell() cannot: they are synchronous,
+        and the exchange may have to be asked for a price.
+        """
+        if order_type is OrderType.MARKET:
+            try:
+                price = await self._market_order_price(trading_pair=trading_pair, trade_type=trade_type)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                # The order id has been handed out already, so the order is tracked for the failure
+                # to be announced: whoever placed it is waiting on that id.
+                self.start_tracking_order(
+                    order_id=order_id,
+                    exchange_order_id=None,
+                    trading_pair=trading_pair,
+                    trade_type=trade_type,
+                    price=s_decimal_NaN,
+                    amount=amount,
+                    order_type=order_type,
+                    **kwargs,
+                )
+                self._on_order_failure(
+                    order_id=order_id,
+                    trading_pair=trading_pair,
+                    amount=amount,
+                    trade_type=trade_type,
+                    order_type=order_type,
+                    price=s_decimal_NaN,
+                    exception=ex,
+                    **kwargs,
+                )
+                return
+
+        await super()._create_order(
+            trade_type=trade_type,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs,
+        )
+
+    async def _market_order_price(self, trading_pair: str, trade_type: TradeType) -> Decimal:
+        """
+        The limit price to send a market order with.
+
+        Priced at the bare mid, an IOC market order cannot cross the spread and simply does not fill,
+        so it crosses by the same slippage buffer the spot connector uses. There is no mid until the
+        order book has both sides: the mark price stands in for it, or failing that the index price.
+
+        The exchange does not match a buy above the ticker's maxp, nor a sell below its minp, and that
+        band is narrower than the buffer, so the price is held inside it. Without a ticker the band is
+        unknown and the buffer is all there is to go by.
+        """
+        ticker = await self._market_order_ticker(trading_pair)
+        try:
+            reference_price = self.get_mid_price(trading_pair)
+        except ValueError:      # no order book for the pair
+            reference_price = None
+        if not self._is_usable_price(reference_price):
+            reference_price = self._ticker_price(ticker, "M") or self._ticker_price(ticker, "I")
+        if reference_price is None:
+            raise ValueError(
+                f"Unable to price a market order for {trading_pair}: there is no mid price in the order book, "
+                f"and no mark or index price from the exchange."
+            )
+
+        min_price, max_price = self._ticker_price(ticker, "minp"), self._ticker_price(ticker, "maxp")
+        margin = s_decimal_0
+        if min_price is not None and max_price is not None:
+            margin = max(max_price - min_price, s_decimal_0) * Decimal(str(CONSTANTS.MARKET_ORDER_BAND_MARGIN))
+
+        slippage = Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE))
+        # Whichever way a price is rounded to the tick, it must not be rounded out of the band.
+        tick = self.get_order_price_quantum(trading_pair, reference_price)
+        if trade_type is TradeType.BUY:
+            price = reference_price * (Decimal("1") + slippage)
+            if max_price is not None:
+                price = min(price, max_price - margin)
+            price = math.floor(price / tick) * tick
+        else:
+            price = reference_price * (Decimal("1") - slippage)
+            if min_price is not None:
+                price = max(price, min_price + margin)
+            price = math.ceil(price / tick) * tick
+        if not self._is_usable_price(price):
+            raise ValueError(f"Unable to price a market order for {trading_pair}: no price tick below {reference_price}.")
+        return price
+
+    async def _market_order_ticker(self, trading_pair: str) -> Dict[str, Any]:
+        """The instrument's ticker, or an empty one if it cannot be had: a market order must not hang on it."""
+        try:
+            response = await asyncio.wait_for(
+                self._api_post(
+                    path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+                    data={"instrument_name": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)},
+                ),
+                timeout=CONSTANTS.MARKET_ORDER_TICKER_TIMEOUT,
+            )
+            if "error" in response:
+                raise IOError(describe_error(response["error"]))
+            return dict(response["result"])
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().warning(
+                f"Could not fetch the ticker to price a market order for {trading_pair}. "
+                f"Its price will not be held inside the exchange's price band.",
+                exc_info=True,
+            )
+            return {}
+
+    @classmethod
+    def _ticker_price(cls, ticker: Dict[str, Any], key: str) -> Optional[Decimal]:
+        try:
+            price = Decimal(str(ticker.get(key)))
+        except ArithmeticError:
+            return None
+        return price if price.is_finite() and cls._is_usable_price(price) else None
 
     async def _place_order(
             self,
