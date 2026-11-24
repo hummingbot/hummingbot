@@ -45,7 +45,7 @@ install:
 		exit 1; \
 	fi
 	@mkdir -p logs
-	@uv sync $(UV_EXTRA)
+	@uv sync $(UV_EXTRA) || { echo "Error: uv sync failed; the environment was not installed." >&2; exit 1; }
 # Make `hummingbot` importable from any directory (replaces `conda develop .`).
 # `uv sync` does not remove this file, but it is lost if the venv is recreated -- re-run `make install` then.
 	@site_packages="$$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")" && \
@@ -58,7 +58,7 @@ install:
 			sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get install -y build-essential; \
 		fi; \
 	fi
-	@uv run $(UV_EXTRA) python setup.py build_ext --inplace
+	@uv run $(UV_EXTRA) python setup.py build_ext --inplace || { echo "Error: Cython build failed." >&2; exit 1; }
 # Not fatal: fails when this is not a usable git checkout (e.g. a source tarball).
 	@uv run $(UV_EXTRA) pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."
 	@ln -sf "$(CURDIR)/bin/hbot" ".venv/bin/hbot"
