@@ -628,6 +628,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         for data in parsed_resps:
             ex_trading_pair = data["instId"]
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+            if hb_trading_pair not in self._contract_sizes:
+                # Contract sizes are loaded with the trading rules; the next positions update will handle it
+                continue
             position_side = self.get_position_side(data)
             unrealized_pnl = Decimal(data["upl"]) if bool(data["upl"]) else Decimal(str(0.0))
             entry_price = Decimal(data["avgPx"]) if bool(data["avgPx"]) else Decimal(str(0.0))
@@ -675,7 +678,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         """
         if bool(position_msg.get("instId")):
             ex_trading_pair = position_msg["instId"]
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+            symbol_map = await self.trading_pair_symbol_map()
+            if ex_trading_pair not in symbol_map:
+                # The positions channel reports every swap in the account, including instruments the connector
+                # does not support (e.g. inverse swaps). Those positions are ignored.
+                return
+            trading_pair = symbol_map[ex_trading_pair]
+            if trading_pair not in self._contract_sizes:
+                # Contract sizes are loaded with the trading rules; the positions polling will update it later
+                return
             position_side = self.get_position_side(position_msg)
             entry_price = Decimal(position_msg["avgPx"]) if bool(position_msg["avgPx"]) else Decimal("0")
             amount = self.get_position_amount(trading_pair, position_msg)

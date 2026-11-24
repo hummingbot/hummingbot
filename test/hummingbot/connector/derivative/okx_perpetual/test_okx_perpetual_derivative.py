@@ -1526,6 +1526,37 @@ class OkxPerpetualDerivativeTests(
         self.assertEqual(Decimal("0.6"), self.exchange.get_position_amount(self.trading_pair, net_short_position_msg))
         self.assertEqual(Decimal("0"), self.exchange.get_position_amount(self.trading_pair, empty_position_msg))
 
+    def test_position_event_for_unsupported_instrument_is_ignored(self):
+        # The positions channel also reports instruments the connector does not support (e.g. inverse swaps)
+        self._simulate_contract_sizes_initialized()
+        position_msg = {"instId": "BTC-USD-SWAP", "posSide": "net", "pos": "-3", "avgPx": "60000",
+                        "lever": "5", "upl": "0"}
+
+        self.async_run_with_timeout(self.exchange._process_account_position_event(position_msg))
+
+        self.assertEqual(0, len(self.exchange.account_positions))
+
+    def test_position_event_before_contract_sizes_are_loaded_is_skipped(self):
+        self.exchange._contract_sizes = {}
+        position_msg = {"instId": self.exchange_trading_pair, "posSide": "net", "pos": "-3", "avgPx": "10000",
+                        "lever": "5", "upl": "0"}
+
+        self.async_run_with_timeout(self.exchange._process_account_position_event(position_msg))
+
+        self.assertEqual(0, len(self.exchange.account_positions))
+
+    def test_position_event_for_supported_instrument_sets_position(self):
+        self.exchange._contract_sizes = {self.trading_pair: Decimal("0.1")}
+        position_msg = {"instId": self.exchange_trading_pair, "posSide": "net", "pos": "-6", "avgPx": "10000",
+                        "lever": "5", "upl": "1.5"}
+
+        self.async_run_with_timeout(self.exchange._process_account_position_event(position_msg))
+
+        position = self.exchange.account_positions[self.trading_pair]
+        self.assertEqual(PositionSide.SHORT, position.position_side)
+        self.assertEqual(Decimal("-0.6"), position.amount)
+        self.assertEqual(Decimal("10000"), position.entry_price)
+
     def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()
 
