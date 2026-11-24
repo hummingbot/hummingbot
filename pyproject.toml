@@ -24,7 +24,6 @@ dependencies = [
     "cryptography>=41.0.2",
     "decibel-python-sdk==0.2.1",
     "eth-account>=0.13.0",
-    "injective-py==1.14.*",
     "lighter-sdk==1.1.2",
     # NOT "msgpack-python": on PyPI that name is a dead alias frozen at 0.5.6 (2018), whose packb encodes
     # strings >31 bytes differently and so changes the Hyperliquid action hash (orders carry a 34-char cloid).
@@ -72,6 +71,25 @@ Homepage = "https://github.com/hummingbot/hummingbot"
 dydx = [
     "v4-proto", # conda-forge packaged this same project as "dydxprotocol-v4-proto-py"; PyPI's name is "v4-proto" (import name: v4_proto)
     "gql[aiohttp]>=3.4.1", # conda-forge split gql's aiohttp transport into "gql-with-aiohttp"; PyPI's equivalent is the gql[aiohttp] extra
+    # v4-proto's own metadata only declares "protobuf>=4.23", far below the gencode version its
+    # wheel is actually compiled against -- resolving the base "protobuf>=4.23.3" dependency
+    # without this floor picks an older runtime (seen: 5.29.6) that protobuf's own gencode/runtime
+    # check then refuses at import time ("Detected incompatible Protobuf Gencode/Runtime
+    # versions ... gencode 6.31.1 runtime 5.29.6"). Declaring the floor directly in this extra (not
+    # in the base dependency, which would wrongly also apply to the "injective" extra's own
+    # protobuf<6.0.0 ceiling) lets uv fork the two extras onto their own compatible protobuf
+    # version instead of colliding on one.
+    "protobuf>=6.31.1",
+]
+# Extra packages for the injective_v2 connectors (`make install INJECTIVE=1`). injective-py
+# bundles its own compiled copy of the Cosmos SDK's protobuf files under a different name than
+# v4-proto's copy of those same proto definitions; importing both in one process trips protobuf's
+# global descriptor pool ("a file with that name has already been added to this registry"), which
+# is what broke the dYdX connector when injective-py was still an unconditional base dependency.
+# Keeping injective-py behind its own extra, mutually exclusive with "dydx" (see
+# [tool.uv].conflicts below), means only one of the two colliding proto copies is ever installed.
+injective = [
+    "injective-py==1.14.*",
 ]
 
 [dependency-groups]
@@ -99,6 +117,15 @@ dev = [
 # dependency venv, the same division of labor conda had between `conda env create` and
 # the separate `setup.py build_ext --inplace` step.
 package = false
+# injective-py (extra "injective") and v4-proto (extra "dydx") bundle colliding compiled copies
+# of the same Cosmos protobuf files (see the "injective" extra's comment above) — never let uv
+# resolve or sync both extras into the same environment at once.
+conflicts = [
+    [
+        { extra = "dydx" },
+        { extra = "injective" },
+    ],
+]
 # The Makefile/install/start scripts are bash-only (no native Windows support, same as the old
 # conda-based flow), and at least one dydx-extra dependency has no Windows distribution on PyPI
 # (conda-forge built its own). Scope universal resolution to the platforms actually supported.
