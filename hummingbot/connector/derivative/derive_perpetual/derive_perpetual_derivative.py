@@ -5,7 +5,7 @@ import re
 import time
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Optional, Set, Tuple
 
 from bidict import bidict
 
@@ -72,6 +72,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
         self._resting_close_warning_logged = False
+        self._market_orders_being_priced: Set[str] = set()
         self._positions_poll_lock = asyncio.Lock()
         self._position_balance_updates: Dict[str, Decimal] = {}
         self._position_balance_update_times: Dict[str, float] = {}
@@ -634,6 +635,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             )
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        if order_id in self._market_orders_being_priced:
+            # Nothing has been sent to the exchange yet, and taking it out of here is what stops it.
+            self._market_orders_being_priced.remove(order_id)
+            return True
         oid = await tracked_order.get_exchange_order_id()
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
@@ -741,35 +746,43 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         Prices market orders before they are created. buy() and sell() cannot: they are synchronous,
         and the exchange may have to be asked for a price.
         """
-        if order_type is OrderType.MARKET:
+        if order_type is OrderType.MARKET and kwargs.get("position_action") in self.VALID_POSITION_ACTIONS:
+            # The order id has been handed out already. The order is tracked while it waits for its
+            # price so that it can be cancelled, and so that a failure to price it is announced. Until
+            # then it has no price: not NaN, which would spread to the available balance.
+            self.start_tracking_order(
+                order_id=order_id,
+                exchange_order_id=None,
+                trading_pair=trading_pair,
+                trade_type=trade_type,
+                price=s_decimal_0,
+                amount=amount,
+                order_type=order_type,
+                **kwargs,
+            )
+            self._market_orders_being_priced.add(order_id)
             try:
                 price = await self._market_order_price(trading_pair=trading_pair, trade_type=trade_type)
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                # The order id has been handed out already, so the order is tracked for the failure
-                # to be announced: whoever placed it is waiting on that id.
-                self.start_tracking_order(
-                    order_id=order_id,
-                    exchange_order_id=None,
-                    trading_pair=trading_pair,
-                    trade_type=trade_type,
-                    price=s_decimal_NaN,
-                    amount=amount,
-                    order_type=order_type,
-                    **kwargs,
-                )
-                self._on_order_failure(
-                    order_id=order_id,
-                    trading_pair=trading_pair,
-                    amount=amount,
-                    trade_type=trade_type,
-                    order_type=order_type,
-                    price=s_decimal_NaN,
-                    exception=ex,
-                    **kwargs,
-                )
+                if order_id in self._market_orders_being_priced:
+                    self._on_order_failure(
+                        order_id=order_id,
+                        trading_pair=trading_pair,
+                        amount=amount,
+                        trade_type=trade_type,
+                        order_type=order_type,
+                        price=price,
+                        exception=ex,
+                        **kwargs,
+                    )
                 return
+            else:
+                if order_id not in self._market_orders_being_priced:
+                    return      # cancelled in the meantime
+            finally:
+                self._market_orders_being_priced.discard(order_id)
 
         await super()._create_order(
             trade_type=trade_type,
@@ -780,6 +793,16 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             price=price,
             **kwargs,
         )
+
+    def start_tracking_order(self, order_id: str, price: Decimal, amount: Decimal, order_type: OrderType, **kwargs):
+        tracked_order = self._order_tracker.active_orders.get(order_id)
+        if order_type is OrderType.MARKET and tracked_order is not None and tracked_order.price == s_decimal_0:
+            # Tracked since before it was priced. Something may already be waiting on this very order,
+            # for its exchange id for one, so it is completed rather than replaced.
+            tracked_order.price = price
+            tracked_order.amount = amount
+            return
+        super().start_tracking_order(order_id=order_id, price=price, amount=amount, order_type=order_type, **kwargs)
 
     async def _market_order_price(self, trading_pair: str, trade_type: TradeType) -> Decimal:
         """

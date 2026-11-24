@@ -3663,6 +3663,96 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             ))
         self.assertEqual(0, len(self.order_failure_logger.event_log))
 
+    def _cancel_while_pricing(self, ticker_result: Any) -> Tuple[str, List[str]]:
+        self._simulate_trading_rules_initialized()
+        ticker_requested, answer_ticker, paths = asyncio.Event(), asyncio.Event(), []
+
+        async def api_post(path_url, **_):
+            paths.append(path_url)
+            if path_url == CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL:
+                ticker_requested.set()
+                await answer_ticker.wait()
+                if isinstance(ticker_result, BaseException):
+                    raise ticker_result
+                return ticker_result
+            return self.order_creation_request_successful_mock_response
+
+        self.exchange._api_post = api_post
+
+        async def run():
+            order_id = self.exchange.buy(
+                self.trading_pair, Decimal("1"), OrderType.MARKET, position_action=PositionAction.OPEN
+            )
+            await ticker_requested.wait()
+            order = self.exchange.in_flight_orders[order_id]
+            self.assertFalse(order.price.is_nan())
+            # A price of NaN would make the balance NaN as well.
+            self.assertFalse(self.exchange.get_available_balance(self.quote_asset).is_nan())
+
+            results = await self.exchange.cancel_all(timeout_seconds=1)
+            self.assertEqual([(order_id, True)], [(result.order_id, result.success) for result in results])
+            answer_ticker.set()
+            for _ in range(20):
+                await asyncio.sleep(0.005)
+            self.assertTrue(order.is_cancelled)
+            return order_id
+
+        return self.async_run_with_timeout(run()), paths
+
+    def test_market_orders_cancelled_while_being_priced_are_not_sent(self):
+        for index, ticker in enumerate((self._slim_ticker(), IOError("HTTP status is 500"))):
+            with self.subTest(ticker=ticker):
+                order_id, paths = self._cancel_while_pricing(ticker)
+
+                self.assertEqual([CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL], paths)
+                self.assertNotIn(order_id, self.exchange.in_flight_orders)
+                self.assertEqual(index + 1, len(self.order_cancelled_logger.event_log))
+                self.assertEqual(order_id, self.order_cancelled_logger.event_log[index].order_id)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+        self.assertEqual(set(), self.exchange._market_orders_being_priced)
+
+    def test_market_orders_remain_the_same_order_once_priced(self):
+        self._simulate_trading_rules_initialized()
+        before = []
+
+        async def api_post(path_url, **_):
+            if path_url == CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL:
+                before.extend(self.exchange.in_flight_orders.values())
+                return self._slim_ticker()
+            return self.order_creation_request_successful_mock_response
+
+        self.exchange._api_post = api_post
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="0x1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1.00001"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.OPEN,
+        ))
+
+        order = self.exchange.in_flight_orders["0x1"]
+        self.assertEqual(1, len(before))
+        self.assertIs(order, before[0])
+        self.assertEqual(Decimal("1748.20"), order.price)
+        self.assertEqual(self.exchange.quantize_order_amount(self.trading_pair, Decimal("1.00001")), order.amount)
+
+    def test_market_orders_with_an_invalid_position_action_are_not_left_tracked(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock()
+
+        with self.assertRaises(ValueError):
+            self.async_run_with_timeout(self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="0x1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                position_action=PositionAction.NIL,
+            ))
+        self.exchange._api_post.assert_not_called()
+        self.assertEqual({}, self.exchange.in_flight_orders)
+
     def test_limit_orders_are_not_repriced(self):
         for order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
             for trade_type, price in ((TradeType.BUY, "1600.129"), (TradeType.SELL, "1900.129")):
