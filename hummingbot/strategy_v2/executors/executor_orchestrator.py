@@ -583,9 +583,24 @@ class ExecutorOrchestrator:
             (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
             None)
         if not executor:
+            if self._is_already_terminated(controller_id, executor_id):
+                # Already auto-stored by _auto_store_terminated_executors (GitHub #8042); it is still
+                # reported via get_executors_report() for recent-history lookups until it ages out of
+                # the deque, which is why a strategy iterating that report (e.g. check_manual_kill_switch)
+                # can request it be stopped again. It's already terminated, so this is a no-op.
+                return
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
         executor.early_stop(action.keep_position)
+
+    def _is_already_terminated(self, controller_id: str, executor_id: str) -> bool:
+        """
+        Whether executor_id has already been auto-stored into the recently-terminated deque for
+        controller_id, i.e. it is no longer in active_executors but still appears in
+        get_executors_report() for recent-history lookups.
+        """
+        recently_terminated = self.recently_terminated_executors.get(controller_id, [])
+        return any(executor.config.id == executor_id for executor in recently_terminated)
 
     def _auto_store_terminated_executors(self):
         """

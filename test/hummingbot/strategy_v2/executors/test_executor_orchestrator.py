@@ -551,6 +551,34 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
 
+    def test_stop_executor_already_auto_stored_is_ignored_without_error(self):
+        """check_manual_kill_switch() (scripts/v2_with_controllers.py) stops every executor in
+        get_executors_by_controller(), which includes executors _auto_store_terminated_executors()
+        already moved into recently_terminated_executors (GitHub #8042), since that deque is still
+        part of the executors report it reads from. Requesting a stop on one of those must not log
+        a "not found" error, and must leave the deque untouched (it still serves recent-history
+        lookups until it ages out)."""
+        position_executor = MagicMock(spec=PositionExecutor)
+        position_executor.config = MagicMock(PositionExecutorConfig)
+        position_executor.config.id = "already_stored"
+
+        self.orchestrator.active_executors["test"] = []
+        self.orchestrator.recently_terminated_executors["test"] = [position_executor]
+
+        with patch.object(self.orchestrator, "logger") as logger_mock:
+            self.orchestrator.stop_executor(StopExecutorAction(executor_id="already_stored", controller_id="test"))
+            logger_mock.return_value.error.assert_not_called()
+
+        self.assertIn(position_executor, self.orchestrator.recently_terminated_executors["test"])
+
+    def test_stop_executor_truly_missing_still_logs_error(self):
+        self.orchestrator.active_executors["test"] = []
+        self.orchestrator.recently_terminated_executors["test"] = []
+
+        with patch.object(self.orchestrator, "logger") as logger_mock:
+            self.orchestrator.stop_executor(StopExecutorAction(executor_id="missing", controller_id="test"))
+            logger_mock.return_value.error.assert_called_once()
+
     @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
     def test_generate_performance_report_with_loaded_positions(self, mock_get_instance: MagicMock):
         # Create mock markets recorder
