@@ -28,7 +28,11 @@ WORKDIR /home/hummingbot
 # installs the runtime dependencies plus only what `setup.py build_ext` needs (cython, setuptools),
 # keeping test/lint tooling out of the image.
 COPY pyproject.toml uv.lock /home/hummingbot/
-RUN uv sync --locked --no-dev --group build
+# --extra injective: conda's environment.yml installed injective-py unconditionally, so the
+# Docker image keeps that connector working by default (the "dydx" extra stays opt-in, as it
+# already was pre-migration). The two extras conflict (see [tool.uv].conflicts in pyproject.toml)
+# and can't both be installed in the same venv.
+RUN uv sync --locked --no-dev --group build --extra injective
 
 # Copy remaining files
 COPY bin/ bin/
