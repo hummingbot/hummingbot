@@ -1,6 +1,6 @@
 from typing import List
 
-import pandas_ta as ta  # noqa: F401
+import fin_primitives.pandas  # noqa: F401
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
@@ -63,7 +63,7 @@ class SuperTrend(DirectionalTradingControllerBase):
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
-        df.ta.supertrend(length=self.config.length, multiplier=self.config.multiplier, append=True)
+        df.fp.supertrend(length=self.config.length, multiplier=self.config.multiplier, append=True)
         df["percentage_distance"] = abs(df["close"] - df[f"SUPERT_{self.config.length}_{self.config.multiplier}"]) / df["close"]
 
         # Generate long and short conditions

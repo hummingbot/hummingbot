@@ -37,7 +37,6 @@ dependencies:
   - numpy>=2.2.6
   - objgraph
   - pandas>=2.3.2
-  - pandas-ta>=0.4.71b
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
@@ -66,6 +65,7 @@ dependencies:
   - yaml>=0.2.5
   - zlib>=1.2.13
   - pip:
+    - fin-primitives[pandas]>=3.9.0
     - aiomqtt>=2.0.0
     - injective-py==1.14.*
     - decibel-python-sdk==0.2.1

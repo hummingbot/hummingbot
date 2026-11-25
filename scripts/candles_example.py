@@ -1,8 +1,8 @@
 import os
 from typing import Dict, List
 
+import fin_primitives.pandas  # noqa: F401
 import pandas as pd
-import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -159,9 +159,9 @@ class CandlesExample(StrategyV2Base):
 
                     # Calculate indicators if we have enough data
                     if len(candles_df) >= 20:
-                        candles_df.ta.rsi(length=14, append=True)
-                        candles_df.ta.bbands(length=20, std=2, append=True)
-                        candles_df.ta.ema(length=14, append=True)
+                        candles_df.fp.rsi(length=14, append=True)
+                        candles_df.fp.bbands(length=20, std=2, append=True)
+                        candles_df.fp.ema(length=14, append=True)
 
                     candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="s")
 
@@ -176,8 +176,8 @@ class CandlesExample(StrategyV2Base):
                     # Include indicators if they exist and have data
                     if "RSI_14" in candles_df.columns and candles_df["RSI_14"].notna().any():
                         indicator_columns.append("RSI_14")
-                    if "BBP_20_2.0_2.0" in candles_df.columns and candles_df["BBP_20_2.0_2.0"].notna().any():
-                        indicator_columns.append("BBP_20_2.0_2.0")
+                    if "BBP_20_2.0" in candles_df.columns and candles_df["BBP_20_2.0"].notna().any():
+                        indicator_columns.append("BBP_20_2.0")
                     if "EMA_14" in candles_df.columns and candles_df["EMA_14"].notna().any():
                         indicator_columns.append("EMA_14")
 
@@ -197,8 +197,8 @@ class CandlesExample(StrategyV2Base):
                     if "RSI_14" in candles_df.columns and pd.notna(current.get('RSI_14')):
                         current_price += f" | RSI: {current['RSI_14']:.2f}"
 
-                    if "BBP_20_2.0_2.0" in candles_df.columns and pd.notna(current.get('BBP_20_2.0_2.0')):
-                        current_price += f" | BB%: {current['BBP_20_2.0_2.0']:.3f}"
+                    if "BBP_20_2.0" in candles_df.columns and pd.notna(current.get('BBP_20_2.0')):
+                        current_price += f" | BB%: {current['BBP_20_2.0']:.3f}"
 
                     lines.extend([f"    {current_price}"])
                 else:
