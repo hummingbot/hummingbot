@@ -143,8 +143,8 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if CONSTANTS.WS_SUBSCRIBE_TRADES or CONSTANTS.WS_TRADE_RESPONSE in raw_message['n']:
-            full_msg = eval(raw_message['o'].replace(",false,", ",False,"))
+        if raw_message['n'] in (CONSTANTS.WS_SUBSCRIBE_TRADES, CONSTANTS.WS_TRADE_RESPONSE):
+            full_msg = utils.ws_data_to_dict(raw_message['o'])
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitTradeFields.INSTRUMENTID.value])
                 trading_pair = ""
@@ -161,8 +161,8 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if CONSTANTS.WS_ORDER_BOOK_RESPONSE or CONSTANTS.WS_ORDER_STATE in raw_message['n']:
-            full_msg = eval(raw_message['o'])
+        if raw_message['n'] in (CONSTANTS.WS_ORDER_BOOK_RESPONSE, CONSTANTS.WS_ORDER_STATE):
+            full_msg = utils.ws_data_to_dict(raw_message['o'])
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitOrderBookFields.PRODUCTPAIRCODE.value])
 

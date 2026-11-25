@@ -1,11 +1,12 @@
 import asyncio
 import threading
 from decimal import Decimal
-from test.mock.mock_mqtt_server import FakeMQTTBroker
+from test.mock.mock_mqtt_server import FakeMQTTBroker, FakeMQTTClient
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiomqtt
 from async_timeout import timeout
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -646,6 +647,64 @@ class RemoteIfaceMQTTTests(TestCase):
         # The single reconnect loop brings it back online by itself.
         self.async_run_with_timeout(self.wait_for_connected(), timeout=10)
         self.assertTrue(self.gateway.health)
+
+    def test_reconnect_backoff_grows_and_caps(self):
+        self.gateway._reconnect_interval = 5.0
+        self.gateway._reconnect_max_interval = 60.0
+        self.gateway._reconnect_attempt = 0
+        delays = [self.gateway._next_reconnect_delay() for _ in range(6)]
+        self.assertEqual(delays, [5.0, 10.0, 20.0, 40.0, 60.0, 60.0])
+
+    def test_reconnect_backoff_survives_long_outage_without_overflow(self):
+        # A sustained outage must not let the exponent keep growing: once the
+        # delay saturates at the cap, 2 ** attempt should stop climbing, or a
+        # long enough outage raises OverflowError and kills the retry loop.
+        self.gateway._reconnect_interval = 5.0
+        self.gateway._reconnect_max_interval = 60.0
+        self.gateway._reconnect_attempt = 0
+        for _ in range(2000):
+            delay = self.gateway._next_reconnect_delay()
+        self.assertEqual(delay, 60.0)
+        self.assertLess(self.gateway._reconnect_attempt, 1024)
+
+    def test_reconnect_backoff_grows_on_outage_then_resets_on_connect(self):
+        # The fake broker's connect always succeeds, so force a few failures
+        # on connect itself to exercise consecutive-failure growth, then let
+        # it through to verify the counter resets once connected.
+        self.gateway._reconnect_interval = 0.01
+        self.gateway._reconnect_max_interval = 0.08
+
+        class _FlakyClient(FakeMQTTClient):
+            fail_times = 3
+
+            async def __aenter__(self):
+                # ``async with`` resolves __aenter__ on the type, so the
+                # failure must live on a real subclass, not an instance patch.
+                if _FlakyClient.fail_times > 0:
+                    _FlakyClient.fail_times -= 1
+                    raise aiomqtt.MqttError("Simulated connect failure")
+                return await super().__aenter__()
+
+        def _flaky_create_client(gw):
+            return _FlakyClient(self.fake_mqtt_broker)
+
+        with patch.object(MQTTGateway, '_create_client', _flaky_create_client):
+            self.start_mqtt()
+            self.async_run_with_timeout(self.wait_for_connected(), timeout=10)
+
+        self.assertTrue(self.gateway.health)
+        # Log volume is bounded: each retry's delay widens instead of a
+        # fixed-rate warning every cycle for as long as the outage lasts.
+        warnings = [
+            record.getMessage() for record in self.log_records
+            if record.levelname == "WARNING" and "Simulated connect failure" in record.getMessage()
+        ]
+        self.assertEqual(len(warnings), 3)
+        self.assertIn("Reconnecting in 0.01s.", warnings[0])
+        self.assertIn("Reconnecting in 0.02s.", warnings[1])
+        self.assertIn("Reconnecting in 0.04s.", warnings[2])
+        # The successful connect resets the counter for the next outage.
+        self.assertEqual(self.gateway._reconnect_attempt, 0)
 
     def test_mqtt_publish_from_non_main_thread(self):
         self.start_mqtt()

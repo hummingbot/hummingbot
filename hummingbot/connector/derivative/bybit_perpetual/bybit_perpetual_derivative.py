@@ -61,7 +61,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        if self._domain == CONSTANTS.DEFAULT_DOMAIN:
+            return CONSTANTS.EXCHANGE_NAME
+        else:
+            return self._domain
 
     @property
     def authenticator(self) -> BybitPerpetualAuth:
