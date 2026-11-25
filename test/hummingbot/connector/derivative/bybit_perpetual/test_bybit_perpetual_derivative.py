@@ -1414,6 +1414,29 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(self.non_linear_quote_asset, non_linear_buy_collateral_token)
         self.assertEqual(self.non_linear_quote_asset, non_linear_sell_collateral_token)
 
+    def test_name_and_fee_lookup_for_eu_domain(self):
+        eu_exchange = BybitPerpetualDerivative(
+            bybit_perpetual_api_key=self.api_key,
+            bybit_perpetual_secret_key=self.api_secret,
+            trading_pairs=[self.trading_pair],
+            domain="bybit_perpetual_eu",
+        )
+
+        self.assertEqual("bybit_perpetual_eu", eu_exchange.name)
+
+        fee = eu_exchange.get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            position_action=PositionAction.OPEN,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+            is_maker=True,
+        )
+
+        self.assertEqual(Decimal("-0.00025"), fee.percent)
+
     def test_get_position_index(self):
         perpetual_trading: PerpetualTrading = self.exchange._perpetual_trading
         perpetual_trading.set_position_mode(value=PositionMode.ONEWAY)
