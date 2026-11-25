@@ -1616,6 +1616,25 @@ class LPExecutor(ExecutorBase):
                 not self.lp_position_state.position_address):
             return Decimal("0")
 
+        # The position's holdings are not known yet: the create has not been
+        # polled back, so base_amount/quote_amount are still zero while the
+        # deposit is already in initial_value (or the config). Subtracting the
+        # deposit from an empty position reports the WHOLE POSITION AS LOST --
+        # measured on a live bot as -5.881992 on a 5.88 USDC position at t+15s,
+        # correcting to -0.003962 at t+30s. Nothing was lost; nothing had moved.
+        #
+        # A drawdown guard reads this figure first and stops the strategy one
+        # tick after the deploy ("Global drawdown reached"), closing a position
+        # seconds after it opened and paying the round trip for nothing. Absent
+        # holdings are unknown, not zero: say so with 0 until they arrive.
+        if (
+            self.lp_position_state.base_amount == 0
+            and self.lp_position_state.quote_amount == 0
+            and self.lp_position_state.state
+            not in (LPExecutorStates.COMPLETE, LPExecutorStates.FAILED)
+        ):
+            return Decimal("0")
+
         # Use stored add_mid_price for initial value, fall back to current price if not set
         add_price = self.lp_position_state.add_mid_price if self.lp_position_state.add_mid_price > 0 else current_price
 
