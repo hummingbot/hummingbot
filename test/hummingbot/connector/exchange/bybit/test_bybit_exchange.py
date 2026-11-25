@@ -292,6 +292,27 @@ class TestBybitExchange(unittest.TestCase):
 
         self.assertEqual(Decimal("0.001"), fee.percent)  # default fee
 
+    def test_name_and_fee_lookup_for_eu_domain(self):
+        eu_exchange = BybitExchange(
+            bybit_api_key=self.api_key,
+            bybit_api_secret=self.api_secret_key,
+            trading_pairs=[self.trading_pair],
+            domain="bybit_eu",
+        )
+
+        self.assertEqual("bybit_eu", eu_exchange.name)
+
+        fee = eu_exchange.get_fee(
+            base_currency="SOME",
+            quote_currency="OTHER",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.001"), fee.percent)
+
     @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 9

@@ -48,10 +48,10 @@ class BybitConfigMap(BaseConnectorConfigMap):
 
 KEYS = BybitConfigMap.model_construct()
 
-OTHER_DOMAINS = ["bybit_testnet"]
-OTHER_DOMAINS_PARAMETER = {"bybit_testnet": "bybit_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_testnet": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"bybit_testnet": DEFAULT_FEES}
+OTHER_DOMAINS = ["bybit_testnet", "bybit_eu"]
+OTHER_DOMAINS_PARAMETER = {"bybit_testnet": "bybit_testnet", "bybit_eu": "bybit_eu"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_testnet": "BTC-USDT", "bybit_eu": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"bybit_testnet": DEFAULT_FEES, "bybit_eu": DEFAULT_FEES}
 
 
 class BybitTestnetConfigMap(BaseConnectorConfigMap):
@@ -77,4 +77,30 @@ class BybitTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bybit_testnet")
 
 
-OTHER_DOMAINS_KEYS = {"bybit_testnet": BybitTestnetConfigMap.model_construct()}
+class BybitEuConfigMap(BaseConnectorConfigMap):
+    connector: str = "bybit_eu"
+    bybit_eu_api_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Bybit EU API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    bybit_eu_api_secret: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Bybit EU API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    model_config = ConfigDict(title="bybit_eu")
+
+
+OTHER_DOMAINS_KEYS = {
+    "bybit_testnet": BybitTestnetConfigMap.model_construct(),
+    "bybit_eu": BybitEuConfigMap.model_construct(),
+}
