@@ -27,6 +27,7 @@ jobs:
             **/*.+(py|pyx|pyd|yml)
             pyproject.toml
             uv.lock
+            .python-version
       - name: Check if client files are modified
         id: check_files
         if: github.event_name == 'push' || env.GIT_DIFF
@@ -60,17 +61,17 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
-      # Check for pyproject.toml/uv.lock changes. Only uv's cache is stored, not .venv:
+      # Check for pyproject.toml/uv.lock/.python-version changes. Only uv's cache is stored, not .venv:
       # a venv embeds the absolute path of its interpreter and does not survive a new runner.
       - name: Cache uv dependencies
         id: uv-dependencies
         uses: actions/cache@v5
         env:
-          # Increase this value to manually reset cache if pyproject.toml/uv.lock have not changed
+          # Increase this value to manually reset cache if pyproject.toml/uv.lock/.python-version have not changed
           UV_CACHE_NUMBER: 0
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ env.UV_CACHE_NUMBER }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ env.UV_CACHE_NUMBER }}-${{ hashFiles('pyproject.toml', 'uv.lock', '.python-version') }}
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
