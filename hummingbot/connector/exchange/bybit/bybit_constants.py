@@ -14,17 +14,20 @@ TIME_IN_FORCE_GTC = "GTC"
 # Base URL
 REST_URLS = {
     "bybit_main": "https://api.bybit.com",
-    "bybit_testnet": "https://api-testnet.bybit.com"
+    "bybit_testnet": "https://api-testnet.bybit.com",
+    "bybit_eu": "https://api.bybit.eu"
 }
 
 WSS_PUBLIC_URL = {
     "bybit_main": "wss://stream.bybit.com/v5/public/spot",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot"
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot",
+    "bybit_eu": "wss://stream.bybit.com/v5/public/spot"
 }
 
 WSS_PRIVATE_URL = {
     "bybit_main": "wss://stream.bybit.com/v5/private",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private",
+    "bybit_eu": "wss://stream.bybit.com/v5/private"
 }
 
 # unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
