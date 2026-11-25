@@ -46,7 +46,13 @@ class GateioSpotCandles(CandlesBase):
 
     @property
     def candles_max_result_per_rest_request(self):
-        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        # One under the venue's cap, because Gate counts the range inclusively:
+        # asking for 1000 intervals sends `from`..`to`, which is 1001 data
+        # points, and the venue refuses it with "Candlestick range too broad.
+        # Maximum 1000 data points are allowed per request" — surfaced upstream
+        # as a 500. CandlesBase sizes each request window from this value, so
+        # the reduction has to live here rather than in the request parameters.
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST - 1
 
     @property
     def rate_limits(self):
@@ -86,6 +92,16 @@ class GateioSpotCandles(CandlesBase):
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Gate.io REST API does not support fetching more than 10000 candles ago.")
+        # Gate refuses a single request spanning more than the maximum number of
+        # points it serves per call ("Candlestick range too broad. Maximum 1000
+        # data points are allowed per request"), and CandlesBase passes the whole
+        # requested range through in one call. Clamp the window: the base pager
+        # walks backwards from the oldest candle it gets, so a longer range still
+        # completes, one request per 1000 points, instead of failing outright.
+        if start_time is not None and end_time is not None:
+            earliest = end_time - CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST * self.interval_in_seconds
+            if start_time < earliest:
+                start_time = earliest
         return {
             "currency_pair": self._ex_trading_pair,
             "interval": self.interval,
