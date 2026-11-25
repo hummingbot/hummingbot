@@ -30,7 +30,6 @@ dependencies:
   - cachetools>=5.3.1
   - cryptography>=41.0.2
   - eth-account>=0.13.0
-#  - injective-py==1.12.*
   - libta-lib>=0.6.4
   - msgpack-python
   - numba>=0.61.2
@@ -67,7 +66,6 @@ dependencies:
   - zlib>=1.2.13
   - pip:
     - aiomqtt>=2.0.0
-    - injective-py==1.14.*
     - decibel-python-sdk==0.2.1
     - aptos-sdk>=0.8.0
     - solders>=0.19.0

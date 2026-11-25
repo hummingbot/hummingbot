@@ -15,14 +15,6 @@ import time
 # Ensure repo root is on the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Patch broken optional dependency (injective proto mismatch)
-try:
-    from pyinjective.proto.injective.stream.v2 import query_pb2
-    if not hasattr(query_pb2, "OrderFailuresFilter"):
-        query_pb2.OrderFailuresFilter = type("OrderFailuresFilter", (), {})
-except ImportError:
-    pass
-
 from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase  # noqa: E402
 from hummingbot.strategy_v2.backtesting.backtesting_result import BacktestingResult  # noqa: E402
 from hummingbot.strategy_v2.models.executors import CloseType  # noqa: E402

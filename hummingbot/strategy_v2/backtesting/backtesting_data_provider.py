@@ -27,8 +27,7 @@ class BacktestingDataProvider(MarketDataProvider):
     # Leaving them excluded made `initialize_trading_rules` dereference None
     # ("'NoneType' object has no attribute '_update_trading_rules'").
     EXCLUDED_CONNECTORS = ["dydx_perpetual",
-                           "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
-                           "injective_v2_perpetual", "injective_v2"]
+                           "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc"]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
