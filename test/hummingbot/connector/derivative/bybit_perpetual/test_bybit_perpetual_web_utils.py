@@ -33,6 +33,14 @@ class BybitPerpetualWebUtilsTest(unittest.TestCase):
         )
         self.assertEqual("https://api-testnet.bybit.com/testEndpoint/non_linear", url)
 
+        url = web_utils.get_rest_url_for_endpoint(endpoint, domain="bybit_perpetual_eu")
+        self.assertEqual("https://api.bybit.eu/testEndpoint/linear", url)
+
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint, trading_pair=non_linear_pair, domain="bybit_perpetual_eu"
+        )
+        self.assertEqual("https://api.bybit.eu/testEndpoint/non_linear", url)
+
     def test_wss_linear_public_url(self):
         url = web_utils.wss_linear_public_url(None)
         self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
