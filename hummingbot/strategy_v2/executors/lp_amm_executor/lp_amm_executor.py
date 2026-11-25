@@ -627,6 +627,9 @@ class LPAmmExecutor(ExecutorBase):
         swap, since the withdrawn tokens landed in the wallet either way."""
         self._last_close_attempt_wallet_lp_tokens = None
         current_price = self._current_price if self._current_price else Decimal("0")
+        # Freeze LP fees earned now, before a close-out swap below can trade
+        # base_amount/quote_amount - see fees_earned_quote.
+        self.lp_position_state.realized_fees_earned_quote = self.lp_position_state.fees_earned_quote(current_price)
         if self.close_type == CloseType.POSITION_HOLD:
             self._store_net_trade_from_withdrawal(current_price)
 
@@ -778,6 +781,15 @@ class LPAmmExecutor(ExecutorBase):
                         "next attempt reconciles own_lp_token_amount against the wallet's balance "
                         "before retrying."
                     )
+                else:
+                    # A confirmed (non-ambiguous) failure: this attempt's transaction did
+                    # not land, so a wallet-balance drop seen on the next attempt cannot be
+                    # this attempt's own removal - it would be another withdrawal from the
+                    # same wallet/pool. Clear the snapshot rather than reconciling against
+                    # it, or that unrelated drop gets misattributed as this executor's own
+                    # share already removed (Greptile finding "Other withdrawals hide live
+                    # liquidity").
+                    self._last_close_attempt_wallet_lp_tokens = None
                 self._handle_close_failure(ValueError(
                     f"Remove liquidity for {self.config.trading_pair} returned no transaction signature"
                     + (f" ({reason})" if reason else "")
@@ -796,6 +808,12 @@ class LPAmmExecutor(ExecutorBase):
             self._last_close_attempt_wallet_lp_tokens = None
 
             current_price = self._current_price if self._current_price else Decimal("0")
+            # Freeze LP fees earned now, before a close-out swap (below) can trade
+            # base_amount/quote_amount and get its own price difference from
+            # current_price booked as LP fees - see fees_earned_quote.
+            self.lp_position_state.realized_fees_earned_quote = self.lp_position_state.fees_earned_quote(
+                current_price
+            )
             if self.close_type == CloseType.POSITION_HOLD:
                 self._store_net_trade_from_withdrawal(current_price)
 

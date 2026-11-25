@@ -1354,6 +1354,52 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.tx_fee, Decimal("0.0012"))  # 0.001 + 0.0002
         mock_order.cumulative_fee_paid.assert_called_once_with("SOL")
 
+    async def test_closeout_swap_does_not_distort_fees_earned_quote(self):
+        """Fees earned must be frozen at close confirmation, before any close-out
+        swap trades base_amount/quote_amount - otherwise the swap's own execution
+        price difference from current_price gets booked as LP fees (and, through
+        filled_amount_quote, as pool volume that never happened)."""
+        from hummingbot.core.data_type.in_flight_order import OrderState
+
+        executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
+        executor._pool_info = SimpleNamespace(fee_pct=1.0)
+        executor._current_price = Decimal("25")
+
+        # A fee-free position: deposited 1 base + 100 quote, now holds 2 base + 50
+        # quote at price 25 - exactly on the no-fee curve (k=100).
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.lp_position_state.initial_base_amount = Decimal("1")
+        executor.lp_position_state.initial_quote_amount = Decimal("100")
+        executor.lp_position_state.base_amount = Decimal("2")
+        executor.lp_position_state.quote_amount = Decimal("50")
+        # As _close_position/_handle_position_gone do before entering SWAPPING.
+        executor.lp_position_state.realized_fees_earned_quote = (
+            executor.lp_position_state.fees_earned_quote(Decimal("25"))
+        )
+        self.assertEqual(executor.lp_position_state.realized_fees_earned_quote, Decimal("0"))
+
+        executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-order-123")
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        mock_order = MagicMock()
+        mock_order.current_state = OrderState.FILLED
+        mock_order.client_order_id = "swap-order-123"
+        mock_order.trade_type = TradeType.SELL
+        mock_order.executed_amount_base = Decimal("1")
+        mock_order.executed_amount_quote = Decimal("26")  # sold at 26, not the 25 mark price
+        mock_order.cumulative_fee_paid = MagicMock(return_value=Decimal("0"))
+        connector.get_order = MagicMock(return_value=mock_order)
+
+        await executor._execute_closeout_swap()
+
+        self.assertEqual(executor.lp_position_state.base_amount, Decimal("1"))
+        self.assertEqual(executor.lp_position_state.quote_amount, Decimal("76"))
+        # Without the freeze, fees_earned_quote would recompute from the swapped
+        # amounts against current_price (25) and report the swap's $1 price
+        # difference as 1 quote of LP fees - and filled_amount_quote would turn
+        # that into 100 quote of pool volume that never happened at a 1% fee rate.
+        self.assertEqual(executor.lp_position_state.fees_earned_quote(Decimal("25")), Decimal("0"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("0"))
+
     async def test_handle_swap_failure_unresolved_holds_immediately(self):
         """An unresolved (ambiguous) swap result must never be retried: the first
         transaction may still land, and resubmitting could execute the swap twice.
@@ -1424,6 +1470,58 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # instead of a naive fresh-fraction retry withdrawing 3/5 = 60% more of them.
         connector._amm_remove_liquidity.assert_not_awaited()
         self.assertEqual(executor.lp_position_state.own_lp_token_amount, Decimal("0"))
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+
+    async def test_close_position_confirmed_failure_does_not_reconcile_unrelated_drop(self):
+        """Unlike an unresolved failure, a confirmed (non-ambiguous) remove-liquidity
+        failure proves this attempt's transaction did not land. A wallet-balance drop
+        seen on the next attempt is then someone else's withdrawal from the same
+        pool, not this executor's - reconciling it against own_lp_token_amount would
+        zero it out and report the still-live position as gone."""
+        executor = self.get_executor()
+        executor.lp_position_state.position_opened = True
+        executor.lp_position_state.position_nft_address = None
+        executor.lp_position_state.own_lp_token_amount = Decimal("3")
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("150")
+        executor.lp_position_state.initial_base_amount = Decimal("1.5")
+        executor.lp_position_state.initial_quote_amount = Decimal("150")
+        executor._current_price = Decimal("100")
+        executor.close_type = CloseType.EARLY_STOP
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        # First attempt: wallet reports 8 LP tokens (this executor owns 3 of them),
+        # and the remove call fails outright - a confirmed, non-ambiguous failure.
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=8.0, quote=800.0, positions=None, lp_token_amount=8.0,
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value=None)
+        connector.order_failure_reason = MagicMock(return_value="slippage exceeded [code: SLIPPAGE_EXCEEDED]")
+
+        await executor._close_position()
+
+        self.assertEqual(executor._current_retries, 1)
+        self.assertIsNone(executor._last_close_attempt_wallet_lp_tokens)
+        self.assertEqual(executor.lp_position_state.own_lp_token_amount, Decimal("3"))  # unchanged
+
+        # Second attempt: the wallet balance dropped from 8 to 5 - but another
+        # executor withdrew its own 3 LP tokens in between, unrelated to the first
+        # attempt's failure. own_lp_token_amount must not be reconciled against it.
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=5.0, quote=500.0, positions=None, lp_token_amount=5.0,
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
+        executor._close_backoff_until = 0.0  # as if the backoff from attempt 1 had elapsed
+
+        await executor._close_position()
+
+        # own_lp_token_amount (3) still stood against the wallet's remaining 5 LP
+        # tokens, so the remove call fires for this executor's real 60% share
+        # instead of the position being wrongly declared gone.
+        connector._amm_remove_liquidity.assert_awaited_once()
+        self.assertAlmostEqual(
+            connector._amm_remove_liquidity.await_args.kwargs["percentage"], 60.0, places=6
+        )
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
 
     # ---- tx_fee collected from the connector's AMM add/remove metadata ------

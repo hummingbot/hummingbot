@@ -167,6 +167,10 @@ class LPAmmExecutorState(BaseModel):
 
     tx_fee: Decimal = Decimal("0")
 
+    # Fees earned as of the close confirmation, frozen before any close-out swap can
+    # mutate base_amount/quote_amount - see fees_earned_quote below.
+    realized_fees_earned_quote: Optional[Decimal] = None
+
     open_tx_hash: Optional[str] = None
     close_tx_hash: Optional[str] = None
 
@@ -222,7 +226,16 @@ class LPAmmExecutorState(BaseModel):
         accrue into the pool's reserves, not a separate ledger - so this is
         current value minus the no-fee curve, floored at 0 against measurement
         noise right after the position opens.
+
+        Once realized_fees_earned_quote is set (close confirmed), that frozen
+        figure is returned instead: base_amount/quote_amount keep being read
+        for total_value_quote after a close-out swap trades them, and running
+        this formula against the swapped amounts would book the swap's own
+        price difference from current_price as LP fees (and, through
+        filled_amount_quote, as pool volume that never happened).
         """
+        if self.realized_fees_earned_quote is not None:
+            return self.realized_fees_earned_quote
         fees = self.current_value_quote(current_price) - self.value_no_fee_quote(current_price)
         return fees if fees > 0 else Decimal("0")
 

@@ -128,6 +128,17 @@ class TestLPAmmExecutorStateMath(TestCase):
         # Price never moved, so holding and the no-fee curve agree: no IL.
         self.assertEqual(state.impermanent_loss_quote(Decimal("100")), Decimal("0"))
 
+    def test_fees_earned_quote_returns_frozen_value_once_realized(self):
+        # Reserves would report 2 of fees live, but a close-out swap already
+        # happened, so the frozen (pre-swap) figure wins regardless of what
+        # base_amount/quote_amount or current_price say now.
+        state = LPAmmExecutorState(
+            initial_base_amount=Decimal("1"), initial_quote_amount=Decimal("100"),
+            base_amount=Decimal("1.01"), quote_amount=Decimal("101"),
+            realized_fees_earned_quote=Decimal("0"),
+        )
+        self.assertEqual(state.fees_earned_quote(Decimal("100")), Decimal("0"))
+
     def test_impermanent_loss_on_the_no_fee_curve(self):
         # Reserves rebalanced to exactly the no-fee curve at price=400 (4x):
         # base = sqrt(k/p) = sqrt(100/400) = 0.5, quote = sqrt(k*p) = sqrt(40000) = 200.
