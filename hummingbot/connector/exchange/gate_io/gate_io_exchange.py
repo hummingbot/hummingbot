@@ -223,12 +223,22 @@ class GateIoExchange(ExchangePyBase):
         # the underlying aiohttp will encode it to params
         data = data
         endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
-        order_result = await self._api_post(
-            path_url=endpoint,
-            data=data,
-            is_auth_required=True,
-            limit_id=endpoint,
-        )
+        try:
+            order_result = await self._api_post(
+                path_url=endpoint,
+                data=data,
+                is_auth_required=True,
+                limit_id=endpoint,
+            )
+        except IOError as e:
+            error_description = str(e)
+            if order_type is OrderType.LIMIT_MAKER and CONSTANTS.ERR_LABEL_POST_ONLY_WOULD_MATCH in error_description:
+                raise ValueError(
+                    f"LIMIT_MAKER order would immediately match and take liquidity. Price {price} crosses "
+                    f"the spread for {trade_type.name.lower()} order on {trading_pair}. Gate.io error: "
+                    f"{error_description}"
+                ) from e
+            raise
         if order_result.get("status") in {"cancelled"}:
             if order_result.get("finish_as") == CONSTANTS.FINISH_AS_POST_ONLY_WOULD_MATCH:
                 raise ValueError(

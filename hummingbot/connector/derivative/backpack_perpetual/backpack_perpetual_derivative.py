@@ -408,7 +408,8 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
                 side = "BUY" if trade_type is TradeType.BUY else "SELL"
                 raise ValueError(
                     f"LIMIT_MAKER order would immediately match and take liquidity. "
-                    f"Price {price} crosses the spread for {side} order on {trading_pair}."
+                    f"Price {price} crosses the spread for {side} order on {trading_pair}. "
+                    f"Backpack error: {error_description}"
                 ) from e
 
             # Check for server overload

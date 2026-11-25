@@ -536,8 +536,9 @@ class ExchangePyBase(ExchangeBase, ABC):
     ):
         if self._is_post_only_rejection_error(order_type=order_type, exception=exception):
             self.logger().warning(
-                f"{order_type.name.upper()} {trade_type.name.lower()} order for {amount} {trading_pair} on "
-                f"{self.name_cap} was rejected because it would not have rested as a maker order: {exception}"
+                f"{order_type.name.upper()} {trade_type.name.lower()} order for {amount} {trading_pair} at "
+                f"{price} on {self.name_cap} was rejected because it would not have rested as a maker order: "
+                f"{exception}"
             )
         else:
             self.logger().network(
