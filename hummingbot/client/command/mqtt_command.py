@@ -1,7 +1,7 @@
 import asyncio
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.remote_iface.mqtt import MQTTGateway
@@ -16,6 +16,21 @@ SUBCOMMANDS = ['start', 'stop', 'restart']
 class MQTTCommand:
     _mqtt_sleep_rate_connection_check: float = 1.0
     _mqtt_sleep_rate_autostart_retry: float = 10.0
+    _mqtt_autostart_retry_max_interval: float = 60.0
+
+    def _next_autostart_retry_delay(self, attempt: int) -> Tuple[float, int]:
+        # Exponential backoff off the base retry rate, capped, so a sustained
+        # outage logs with ever-widening gaps instead of once per cycle.
+        delay = min(
+            self._mqtt_sleep_rate_autostart_retry * (2 ** attempt),
+            self._mqtt_autostart_retry_max_interval,
+        )
+        # Stop growing the exponent once the delay has saturated at the cap:
+        # otherwise a sustained outage keeps doubling 2 ** attempt forever and
+        # eventually raises OverflowError, which would kill the retry loop.
+        if delay < self._mqtt_autostart_retry_max_interval:
+            attempt += 1
+        return delay, attempt
 
     def mqtt_start(self,  # type: HummingbotApplication
                    timeout: float = 30.0
@@ -47,6 +62,7 @@ class MQTTCommand:
                                timeout: float = 30.0
                                ):
         if self._mqtt is None:
+            autostart_retry_attempt = 0
             while True:
                 try:
                     start_t = time.time()
@@ -64,7 +80,8 @@ class MQTTCommand:
                     break
                 except Exception as e:
                     if self.client_config_map.mqtt_bridge.mqtt_autostart:
-                        s = self._mqtt_sleep_rate_autostart_retry
+                        s, autostart_retry_attempt = self._next_autostart_retry_delay(
+                            autostart_retry_attempt)
                         self.logger().error(
                             f'Failed to connect MQTT Bridge: {str(e)}. Retrying in {s} seconds.')
                         self.notify(
@@ -79,7 +96,7 @@ class MQTTCommand:
                         self._mqtt = None
 
                     if self.client_config_map.mqtt_bridge.mqtt_autostart:
-                        await asyncio.sleep(self._mqtt_sleep_rate_autostart_retry)
+                        await asyncio.sleep(s)
                     else:
                         break
 
