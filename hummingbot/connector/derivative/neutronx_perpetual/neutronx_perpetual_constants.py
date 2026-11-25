@@ -1,0 +1,57 @@
+from decimal import Decimal
+
+from hummingbot.core.data_type.in_flight_order import OrderState
+
+EXCHANGE_NAME = "neutronx_perpetual"
+DOMAIN = EXCHANGE_NAME
+TESTNET_DOMAIN = "neutronx_perpetual_testnet"
+
+QUOTE_ASSET = "USDC"
+CLIENT_ORDER_ID_MAX_LENGTH = 10
+FUNDING_FEE_POLL_INTERVAL = 120
+TRADING_RULES_INTERVAL = 60.0
+
+INDEXER_REST_LIMIT_ID = "neutronx_indexer_rest"
+INDEXER_STATUS_LIMIT_ID = "neutronx_indexer_status"
+STATUS_REQUESTS_PER_MINUTE = 60
+NETWORK_CHECKS_PER_MINUTE = 6
+HTTP_TOO_MANY_REQUESTS = 429
+RATE_LIMIT_BACKOFF_MAX = 30.0
+NETWORK_CHECK_TIMEOUT = 4.0
+NETWORK_FAILURES_TO_DISCONNECT = 2
+TICKERS_TTL = 1.0
+
+WS_HEARTBEAT_TIMEOUT = 60.0
+ORDER_BOOK_SNAPSHOT_DEPTH = 100
+HISTORY_PAGE_LIMIT = 200
+HISTORY_MAX_PAGES = 50
+HISTORY_LOOKBACK_SECONDS = 60.0
+HISTORY_SCANS_CAPACITY = 1_000
+MAX_INDEXER_LAG_BLOCKS = 30
+
+MARKET_ORDER_SLIPPAGE = Decimal("0.05")
+DEFAULT_PRICE_INCREMENT = Decimal("1e-8")
+QUANTITY_INCREMENT = Decimal("1e-8")
+DEFAULT_TX_GAS_CEILING = 6_000_000
+LOW_FEE_BALANCE = Decimal("0.1")
+TX_FLUSH_INTERVAL = 0.2
+ORDER_VISIBILITY_GRACE_SECONDS = 15.0
+FILL_SETTLE_TIMEOUT = 120.0
+FILL_BACKFILL_INTERVAL = 5.0
+SEEN_FILLS_CAPACITY = 10_000
+FINISHED_ORDERS_CAPACITY = 10_000
+
+ORDER_NOT_FOUND_MESSAGE = "order not found on chain or indexer"
+HISTORY_INCOMPLETE_MESSAGE = "the order is older than the indexer history read so far; the next lookup reads further"
+CANCEL_REJECTED_MESSAGE = "order not found: the chain rejected the cancel"
+NOT_CONNECTED_MESSAGE = "NeutronX is not connected: new orders wait for the network check, cancels still go out"
+
+ORDER_STATE = {
+    "OPEN": OrderState.OPEN,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "FILLED": OrderState.FILLED,
+    "CANCELLED": OrderState.CANCELED,
+    "CANCELED": OrderState.CANCELED,
+    "EXPIRED": OrderState.CANCELED,
+    "REJECTED": OrderState.FAILED,
+}
