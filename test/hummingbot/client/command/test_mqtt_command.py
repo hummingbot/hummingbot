@@ -143,3 +143,14 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         )
         mqtt_health_mock.side_effect = lambda: True
         await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")
+
+    def test_next_autostart_retry_delay_survives_long_outage_without_overflow(self):
+        # Past 1,024 consecutive failures, 2 ** attempt would raise
+        # OverflowError if the attempt counter kept growing unbounded after
+        # the delay has already saturated at the cap. Drive well past that
+        # to prove it stays bounded and the delay stays capped.
+        attempt = 0
+        for _ in range(2000):
+            delay, attempt = self.hbapp._next_autostart_retry_delay(attempt)
+        self.assertEqual(delay, self.hbapp._mqtt_autostart_retry_max_interval)
+        self.assertLess(attempt, 1024)
