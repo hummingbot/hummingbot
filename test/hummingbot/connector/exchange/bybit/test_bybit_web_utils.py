@@ -9,3 +9,5 @@ class WebUtilsTests(TestCase):
         self.assertEqual('https://api.bybit.com/v5/market/tickers', url)
         url = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain='bybit_testnet')
         self.assertEqual('https://api-testnet.bybit.com/v5/market/tickers', url)
+        url = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain='bybit_eu')
+        self.assertEqual('https://api.bybit.eu/v5/market/tickers', url)
