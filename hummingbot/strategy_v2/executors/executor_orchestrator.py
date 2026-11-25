@@ -231,6 +231,7 @@ class ExecutorOrchestrator:
         self.executors_update_interval = executors_update_interval
         self.executors_max_retries = executors_max_retries
         self.active_executors = {}
+        self.recently_terminated_executors: Dict[str, deque] = {}
         self.positions_held = {}
         self.executors_ids_position_held = deque(maxlen=50)
         self.cached_performance = {}
@@ -582,9 +583,49 @@ class ExecutorOrchestrator:
             (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
             None)
         if not executor:
+            if self._is_already_terminated(controller_id, executor_id):
+                # Already auto-stored by _auto_store_terminated_executors (GitHub #8042); it is still
+                # reported via get_executors_report() for recent-history lookups until it ages out of
+                # the deque, which is why a strategy iterating that report (e.g. check_manual_kill_switch)
+                # can request it be stopped again. It's already terminated, so this is a no-op.
+                return
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
         executor.early_stop(action.keep_position)
+
+    def _is_already_terminated(self, controller_id: str, executor_id: str) -> bool:
+        """
+        Whether executor_id has already been auto-stored into the recently-terminated deque for
+        controller_id, i.e. it is no longer in active_executors but still appears in
+        get_executors_report() for recent-history lookups.
+        """
+        recently_terminated = self.recently_terminated_executors.get(controller_id, [])
+        return any(executor.config.id == executor_id for executor in recently_terminated)
+
+    def _auto_store_terminated_executors(self):
+        """
+        Persist terminated executors to the database as soon as they finish, instead of only on
+        shutdown (GitHub #8042). A stored executor is moved out of active_executors into a bounded
+        deque per controller so that strategies inspecting the last N terminated executors (e.g. for
+        cooldown or pricing logic) don't lose that data.
+        """
+        for controller_id, executors_list in self.active_executors.items():
+            stored = []
+            for executor in executors_list:
+                if executor.status != RunnableStatus.TERMINATED:
+                    continue
+                try:
+                    MarketsRecorder.get_instance().store_or_update_executor(executor)
+                    self._update_cached_performance(controller_id, executor.executor_info)
+                    stored.append(executor)
+                except Exception as e:
+                    self.logger().error(f"Error auto-storing terminated executor {executor.config.id}: {str(e)}")
+            if not stored:
+                continue
+            recently_terminated = self.recently_terminated_executors.setdefault(controller_id, deque(maxlen=50))
+            for executor in stored:
+                executors_list.remove(executor)
+                recently_terminated.append(executor)
 
     def _update_positions_from_done_executors(self):
         """
@@ -709,6 +750,16 @@ class ExecutorOrchestrator:
             (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
             None)
         if not executor:
+            recently_terminated = self.recently_terminated_executors.get(controller_id)
+            already_stored = next(
+                (executor for executor in recently_terminated or [] if executor.config.id == executor_id), None)
+            if already_stored:
+                # Already persisted by _auto_store_terminated_executors (GitHub #8042); it is still
+                # reported via get_executors_report() for recent-history lookups until it ages out of
+                # the deque, which is why store_actions_proposal() can request it again. Drop it here
+                # instead of re-storing or logging a false "not found" error.
+                recently_terminated.remove(already_stored)
+                return
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
         if executor.is_active:
@@ -727,11 +778,18 @@ class ExecutorOrchestrator:
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
-        Generate a report of all executors.
+        Generate a report of all executors, including recently terminated ones still held in the
+        bounded deque after being auto-stored. Sorted by creation timestamp so the last entry is
+        always the most recently created executor, matching the pre-auto-store ordering that
+        controllers (e.g. hedge_asset's cooldown check) rely on when indexing the list directly.
         """
         report = {}
         for controller_id, executors_list in self.active_executors.items():
-            report[controller_id] = [executor.executor_info for executor in executors_list if executor]
+            active = [executor.executor_info for executor in executors_list if executor]
+            recently_terminated = [
+                executor.executor_info for executor in self.recently_terminated_executors.get(controller_id, [])
+            ]
+            report[controller_id] = sorted(active + recently_terminated, key=lambda info: info.timestamp)
         return report
 
     def get_positions_report(self) -> Dict[str, List[PositionSummary]]:
@@ -753,8 +811,12 @@ class ExecutorOrchestrator:
         Generate a unified report containing executors, positions, and performance for all controllers.
         Returns a dictionary with controller_id as key and a dict containing all reports as value.
         """
-        # Update any pending position holds from done executors
+        # Update any pending position holds from done executors before any of them get auto-stored
+        # and removed from active_executors below.
         self._update_positions_from_done_executors()
+
+        # Persist terminated executors to the database as soon as they finish, instead of only on shutdown.
+        self._auto_store_terminated_executors()
 
         # Generate all reports
         executors_report = self.get_executors_report()
@@ -762,6 +824,7 @@ class ExecutorOrchestrator:
 
         # Get all controller IDs
         all_controller_ids = set(list(self.active_executors.keys()) +
+                                 list(self.recently_terminated_executors.keys()) +
                                  list(self.positions_held.keys()) +
                                  list(self.cached_performance.keys()))
 
