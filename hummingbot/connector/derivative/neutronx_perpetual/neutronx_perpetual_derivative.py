@@ -86,6 +86,7 @@ def _remember(cache: "OrderedDict[str, Any]", key: str, value: Any, capacity: in
 
 class NeutronxPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
+    TRADING_RULES_INTERVAL = CONSTANTS.TRADING_RULES_INTERVAL
 
     def __init__(
         self,

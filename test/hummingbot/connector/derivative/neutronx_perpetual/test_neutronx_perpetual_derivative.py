@@ -702,6 +702,16 @@ class NeutronxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetua
         self.assertEqual(CONSTANTS.QUOTE_ASSET, self.exchange.get_buy_collateral_token(PAIR))
         self.assertEqual(CONSTANTS.QUOTE_ASSET, self.exchange.get_sell_collateral_token(PAIR))
 
+    async def test_a_new_tick_reaches_orders_with_the_next_rules_refresh(self):
+        self.assertLessEqual(self.connector.TRADING_RULES_INTERVAL, 60)
+        self.data_source.markets_result = (market(tick="2"),)
+        await self.connector._update_trading_rules()
+        self.assertEqual(Decimal(2), self.connector.trading_rules[PAIR].min_price_increment)
+        request = self.connector._order_request(
+            "101", PAIR, Decimal("0.01"), TradeType.SELL, OrderType.LIMIT, Decimal("65000.5"), PositionAction.OPEN
+        )
+        self.assertEqual(Decimal(65002), request.price)
+
     async def test_trading_rules_and_symbols_cover_active_markets(self):
         self.assertEqual({"BTC-USDC", "ETH-USDC"}, set(self.connector.trading_rules))
         self.assertEqual("BTC/USDC", await self.connector.exchange_symbol_associated_to_pair(PAIR))

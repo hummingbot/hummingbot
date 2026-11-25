@@ -9,6 +9,7 @@ TESTNET_DOMAIN = "neutronx_perpetual_testnet"
 QUOTE_ASSET = "USDC"
 CLIENT_ORDER_ID_MAX_LENGTH = 10
 FUNDING_FEE_POLL_INTERVAL = 120
+TRADING_RULES_INTERVAL = 60.0
 
 INDEXER_REST_LIMIT_ID = "neutronx_indexer_rest"
 INDEXER_STATUS_LIMIT_ID = "neutronx_indexer_status"
