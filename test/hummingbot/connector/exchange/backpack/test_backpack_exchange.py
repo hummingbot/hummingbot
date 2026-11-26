@@ -700,6 +700,45 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                             "Error: {'code':'INVALID_CLIENT_REQUEST','message':'Other error'}")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
+    def test_is_post_only_rejection_error_recognizes_backpack_post_only_cross(self):
+        rejection = ValueError(
+            "LIMIT_MAKER order would immediately match and take liquidity. Price 10000 crosses the spread for "
+            "BUY order on COINALPHA-HBOT."
+        )
+        other = IOError("Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is "
+                        "400. Error: {'code':'INVALID_CLIENT_REQUEST','message':'Other error'}")
+
+        self.assertTrue(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, other))
+
+    @aioresponses()
+    def test_create_order_logs_limit_maker_rejection_once_as_warning_not_network(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {"code": "INVALID_ORDER", "message": "Order would immediately match and take liquidity"}
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=400)
+
+        order_id = "1002"
+        self.async_run_with_timeout(
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id=order_id,
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("1"),
+                                        order_type=OrderType.LIMIT_MAKER,
+                                        price=Decimal("10000")))
+
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        warning_records = [
+            record for record in self.log_records
+            if record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+        ]
+        self.assertEqual(1, len(warning_records))
+
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
