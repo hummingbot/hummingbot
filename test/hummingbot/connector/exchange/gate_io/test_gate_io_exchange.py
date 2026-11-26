@@ -737,6 +737,85 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(1, len(self.order_failure_logger.event_log))
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @aioresponses()
+    async def test_create_order_logs_limit_maker_rejection_as_warning_not_network(self, _, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock(cancelled=True)
+        resp["finish_as"] = "poc"
+        mock_api.post(regex_url, body=json.dumps(resp))
+
+        order_id = "someId"
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT_MAKER,
+            price=Decimal("5.1"))
+        await asyncio.sleep(0.0001)
+
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+            for record in self.log_records
+        ))
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @aioresponses()
+    async def test_create_order_logs_limit_maker_rejection_from_error_response_as_warning_not_network(self, _, mock_api):
+        # Live Gate.io returns the POC rejection as an HTTP error response, not a 200 "cancelled" status body.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.post(
+            regex_url,
+            body=json.dumps({
+                "label": "POC_FILL_IMMEDIATELY",
+                "message": "Order would match and take immediately so its cancelled",
+            }),
+            status=400,
+        )
+
+        order_id = "someId"
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT_MAKER,
+            price=Decimal("5.1"))
+        await asyncio.sleep(0.0001)
+
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+            for record in self.log_records
+        ))
+
+    def test_is_post_only_rejection_error_recognizes_gate_io_poc_cancel(self):
+        rejection = ValueError(
+            "LIMIT_MAKER order would immediately match and take liquidity. Price 5.1 crosses the spread for "
+            "buy order on COINALPHA-HBOT."
+        )
+        other = IOError({"label": "ORDER_REJECTED", "message": "Order rejected."})
+
+        self.assertTrue(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, other))
+
     @aioresponses()
     def test_create_order_request_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
