@@ -312,13 +312,14 @@ class LPAmmExecutor(ExecutorBase):
         return addresses, lp_token_amount
 
     async def _pool_address_matches_config(self, connector) -> bool:
-        """Reject a deposit/withdrawal the connector would route to a different pool
-        than the one this executor is configured to watch.
+        """Non-fatal sanity check: log when the dex's default pool for this trading
+        pair differs from the one configured.
 
-        _amm_add_liquidity/_amm_remove_liquidity each independently resolve a pool
-        from the trading pair alone; if the wallet has liquidity in more than one
-        pool for the same pair, that resolution can silently disagree with
-        config.pool_address.
+        _amm_add_liquidity/_amm_remove_liquidity are always called with
+        config.pool_address explicitly, so a mismatch here no longer risks routing
+        funds to the wrong pool - it only flags that the configured pool isn't the
+        dex's default for the pair, which is expected whenever a pair has more than
+        one pool and this executor is pointed at a non-default one.
         """
         try:
             discovered = await connector.get_pool_address(
@@ -328,12 +329,27 @@ class LPAmmExecutor(ExecutorBase):
             self.logger().warning(f"Could not verify pool address for {self.config.trading_pair}: {e}")
             return True
         if discovered and discovered != self.config.pool_address:
-            self.logger().error(
-                f"Configured pool {self.config.pool_address} for {self.config.trading_pair} does not match "
-                f"the pool {discovered} the connector resolved for that pair - refusing to risk funds on the "
-                "wrong pool."
+            self.logger().info(
+                f"Configured pool {self.config.pool_address} for {self.config.trading_pair} is not the "
+                f"dex's default pool ({discovered}) for that pair - using the configured pool explicitly."
             )
             return False
+        return True
+
+    def _bail_if_terminated(self) -> bool:
+        """True when a forced/early stop landed while this create was suspended
+        (on the pool lock or the pre-add snapshot) and nothing has been submitted
+        yet. ``RunnableBase.stop()`` never cancels the in-flight ``control_task``,
+        so without this check the deposit below would still be submitted after
+        the executor already reported itself terminated.
+        """
+        if not self.is_closed:
+            return False
+        self.lp_position_state.active_open_order = None
+        self.logger().info(
+            f"Terminated while creating the position in pool {self.config.pool_address} before any "
+            "deposit was submitted; not depositing."
+        )
         return True
 
     async def _create_position(self):
@@ -344,11 +360,7 @@ class LPAmmExecutor(ExecutorBase):
             self._handle_create_failure(ValueError(f"Connector {self.config.connector_name} not found"))
             return
 
-        if not await self._pool_address_matches_config(connector):
-            self._handle_create_failure(ValueError(
-                f"Pool mismatch for {self.config.trading_pair}: configured {self.config.pool_address}"
-            ))
-            return
+        await self._pool_address_matches_config(connector)
 
         price = self._current_price if self._current_price else Decimal("0")
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
@@ -361,7 +373,13 @@ class LPAmmExecutor(ExecutorBase):
             # deposit land in the gap and get double-counted as this one's own share
             # (or vice versa) by the fungible-LP branch below.
             async with pool_lock:
+                if self._bail_if_terminated():
+                    return
+
                 before_addresses, before_lp_tokens = await self._snapshot_before_add(connector)
+
+                if self._bail_if_terminated():
+                    return
 
                 self.logger().info(f"Calling gateway to add AMM liquidity with order_id={order_id}")
                 signature = await connector._amm_add_liquidity(
@@ -374,6 +392,7 @@ class LPAmmExecutor(ExecutorBase):
                     dex_name=self.lp_dex_name,
                     trading_type=self.lp_trading_type,
                     slippage_pct=float(self._slippage_pct),
+                    pool_address=self.config.pool_address,
                     max_retries=self._max_retries,
                 )
 
@@ -396,6 +415,23 @@ class LPAmmExecutor(ExecutorBase):
                 self.lp_position_state.open_tx_hash = signature
                 self.lp_position_state.tx_fee += connector._amm_lp_tx_fees.pop(order_id, Decimal("0"))
                 self._reset_slippage()
+
+                if self.is_closed:
+                    # The deposit was already in flight when a forced stop landed (above
+                    # pool_lock/snapshot checks only catch termination before submission).
+                    # force_stop_with_position_hold() already recorded FAILED from this
+                    # executor's empty held orders at that point - the transaction confirmed
+                    # anyway, so convert it into an involuntary hold instead of leaving a
+                    # live, funded position reported as nothing on-chain.
+                    self._hold_reason = "forced_stop"
+                    self._record_unclosed_position_marker()
+                    self.close_type = CloseType.POSITION_HOLD
+                    self.logger().error(
+                        f"Add liquidity for {self.config.trading_pair} confirmed (signature={signature}) "
+                        "after the executor was already force-stopped - terminating as an involuntary "
+                        "POSITION_HOLD (hold_reason=forced_stop); reconcile this wallet by hand."
+                    )
+                    return
 
                 position_info = None
                 for attempt in range(3):
@@ -537,6 +573,25 @@ class LPAmmExecutor(ExecutorBase):
             )
             self.close_type = CloseType.FAILED
             self.lp_position_state.state = LPAmmExecutorStates.CLOSING
+            return
+
+        if is_unresolved_failure(error):
+            # The add transaction's outcome could not be proven either way - it may still
+            # confirm on-chain after this result was returned. Reporting FAILED would tell
+            # the controller nothing was deposited and it would be safe to reopen on top of
+            # a deposit that could still land; terminating as an involuntary POSITION_HOLD
+            # instead halts new creation until the pool is reconciled by hand, same contract
+            # as the NFT-unidentified branch in _create_position.
+            self._hold_reason = "open_unresolved"
+            self._record_unclosed_position_marker()
+            self.close_type = CloseType.POSITION_HOLD
+            self.logger().error(
+                f"Add liquidity for {self.config.trading_pair} returned an unresolved "
+                f"transaction: {error}. It may still land on-chain - terminating as an "
+                "involuntary POSITION_HOLD (hold_reason=open_unresolved); reconcile this "
+                "wallet by hand."
+            )
+            self.stop()
             return
 
         self.logger().error(f"Position creation failed: {error}")
@@ -700,11 +755,7 @@ class LPAmmExecutor(ExecutorBase):
         if self._strategy.current_timestamp < self._close_backoff_until:
             return
 
-        if not await self._pool_address_matches_config(connector):
-            self._handle_close_failure(ValueError(
-                f"Pool mismatch for {self.config.trading_pair}: configured {self.config.pool_address}"
-            ))
-            return
+        await self._pool_address_matches_config(connector)
 
         # Verify the position still exists before trying to close (handles a
         # timeout-but-succeeded prior attempt). Only trusted on an NFT-backed
@@ -806,6 +857,7 @@ class LPAmmExecutor(ExecutorBase):
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
                 position_address=self.lp_position_state.position_nft_address,
+                pool_address=self.config.pool_address,
                 slippage_pct=float(self._slippage_pct),
                 max_retries=0,
             )
@@ -1370,6 +1422,7 @@ class LPAmmExecutor(ExecutorBase):
             "state": self.lp_position_state.state.value,
             "pool_address": self.config.pool_address,
             "position_nft_address": self.lp_position_state.position_nft_address,
+            "open_tx_hash": self.lp_position_state.open_tx_hash,
             "current_price": float(price) if price else None,
             "base_amount": float(self.lp_position_state.base_amount),
             "quote_amount": float(self.lp_position_state.quote_amount),

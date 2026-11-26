@@ -118,6 +118,7 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.add_price, Decimal("100.0"))
         self.assertEqual(executor.lp_position_state.add_timestamp, 1_000_000.0)
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.ACTIVE)
+        self.assertEqual(executor.get_custom_info()["open_tx_hash"], "sig123")
 
     async def test_create_position_fungible_lp_success(self):
         """No per-position breakdown: the pool address alone identifies the holding."""
@@ -444,23 +445,31 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     # ---- pool-address mismatch ------------------------------------------
 
-    async def test_create_position_pool_mismatch_rejected(self):
-        """The connector would resolve a different pool for this trading pair than
-        the one configured: refuse to deposit rather than risk funds there."""
+    async def test_create_position_uses_configured_pool_even_when_not_default(self):
+        """The dex's default pool for this trading pair differs from the one
+        configured: the executor must still deposit into the configured pool
+        (passed explicitly to the connector) rather than failing or silently
+        falling back to the dex's default."""
         executor = self.get_executor()
         executor.lp_position_state.state = LPAmmExecutorStates.OPENING
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_address = AsyncMock(return_value="some-other-pool")
+        connector.get_user_positions = AsyncMock(return_value=[])
         connector._amm_add_liquidity = AsyncMock(return_value="sig123")
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.0, quote=100.0,
+            positions=[make_position_detail("nft1", 1.0, 100.0)],
+        ))
 
         await executor._create_position()
 
-        connector._amm_add_liquidity.assert_not_awaited()
-        self.assertFalse(executor.lp_position_state.position_opened)
-        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.FAILED)
+        connector._amm_add_liquidity.assert_awaited_once()
+        self.assertEqual(connector._amm_add_liquidity.await_args.kwargs["pool_address"], "pool123")
+        self.assertTrue(executor.lp_position_state.position_opened)
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.ACTIVE)
 
-    async def test_close_position_pool_mismatch_rejected(self):
+    async def test_close_position_uses_configured_pool_even_when_not_default(self):
         executor = self.get_executor()
         executor.lp_position_state.position_opened = True
         executor.lp_position_state.position_nft_address = "nft1"
@@ -469,13 +478,18 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_address = AsyncMock(return_value="some-other-pool")
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.0, quote=100.0,
+            positions=[make_position_detail("nft1", 1.0, 100.0)],
+        ))
         connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
 
         await executor._close_position()
 
-        connector._amm_remove_liquidity.assert_not_awaited()
-        self.assertEqual(executor._current_retries, 1)
-        self.assertTrue(executor.lp_position_state.position_opened)
+        connector._amm_remove_liquidity.assert_awaited_once()
+        self.assertEqual(connector._amm_remove_liquidity.await_args.kwargs["pool_address"], "pool123")
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+        self.assertFalse(executor.lp_position_state.position_opened)
 
     # ---- swallowed connector failures (None signature) ---------------------
 
@@ -494,6 +508,28 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertFalse(executor.lp_position_state.position_opened)
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.FAILED)
+
+    async def test_create_position_unresolved_add_holds_instead_of_failing(self):
+        """Gateway could not prove the add transaction failed (TX_UNRESOLVED) - it may
+        still land on-chain. Reporting FAILED would tell the controller nothing was
+        deposited and it would be safe to reopen on top of a deposit that could still
+        confirm - this must terminate as an involuntary POSITION_HOLD instead, same
+        contract as open_nft_unresolved."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_user_positions = AsyncMock(return_value=[])
+        connector._amm_add_liquidity = AsyncMock(return_value=None)
+        connector.order_failure_reason = MagicMock(return_value="unresolved [code: TX_UNRESOLVED]")
+
+        await executor._create_position()
+
+        self.assertFalse(executor.lp_position_state.position_opened)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "open_unresolved")
+        self.assertTrue(executor._held_position_orders)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
     async def test_close_position_remove_liquidity_returns_none_is_failure(self):
         executor = self.get_executor()
@@ -798,6 +834,80 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertFalse(lock.locked())
         self.assertTrue(executor.lp_position_state.position_opened)
+
+    async def test_create_position_force_stopped_while_blocked_on_pool_lock_never_deposits(self):
+        """RunnableBase.stop() never cancels the in-flight control_task, so a
+        force_stop_with_position_hold() that lands while _create_position is parked
+        on the pool-wide deposit lock must not let the deposit through once the lock
+        frees - see Greptile finding "Stopped executor still deposits"."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_user_positions = AsyncMock(return_value=[])
+        connector._amm_add_liquidity = AsyncMock(return_value="sig123")
+
+        lock = executor._get_pool_deposit_lock(executor.config.connector_name, executor.config.pool_address)
+        release_other_holder = asyncio.Event()
+
+        async def hold_lock():
+            async with lock:
+                await release_other_holder.wait()
+
+        holder_task = asyncio.ensure_future(hold_lock())
+        while not lock.locked():
+            await asyncio.sleep(0)
+
+        create_task = asyncio.ensure_future(executor._create_position())
+        # Let _create_position run up to (and queue on) the already-held lock.
+        for _ in range(5):
+            await asyncio.sleep(0)
+
+        executor.force_stop_with_position_hold()
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+
+        release_other_holder.set()
+        await holder_task
+        await create_task
+
+        connector._amm_add_liquidity.assert_not_called()
+        self.assertIsNone(executor.lp_position_state.active_open_order)
+
+    async def test_create_position_confirms_after_force_stop_becomes_position_hold(self):
+        """If the deposit was already in flight when the forced stop landed,
+        force_stop_with_position_hold() recorded FAILED from the (then-empty) held
+        orders before the transaction confirmed. Once it confirms, this must not be
+        left as an unmanaged live position reported as FAILED."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_user_positions = AsyncMock(return_value=[])
+
+        add_liquidity_started = asyncio.Event()
+        release_add_liquidity = asyncio.Event()
+
+        async def amm_add_liquidity(**kwargs):
+            add_liquidity_started.set()
+            await release_add_liquidity.wait()
+            return "sig123"
+
+        connector._amm_add_liquidity = AsyncMock(side_effect=amm_add_liquidity)
+
+        create_task = asyncio.ensure_future(executor._create_position())
+        await add_liquidity_started.wait()
+
+        executor.force_stop_with_position_hold()
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+
+        release_add_liquidity.set()
+        await create_task
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "forced_stop")
+        self.assertFalse(executor.lp_position_state.position_opened)
+        markers = [o for o in executor._held_position_orders if o.get("lp_unclosed_position")]
+        self.assertEqual(len(markers), 1)
 
     def test_pool_deposit_lock_is_shared_by_pool_not_by_executor(self):
         """Two different executors on the same (connector_name, pool_address) must
