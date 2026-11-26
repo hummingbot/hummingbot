@@ -227,6 +227,9 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_not_found_error(exception: Exception) -> bool:
         return "404" in str(exception) and "not_found" in str(exception)
 
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        return order_type is OrderType.LIMIT_MAKER and "post only cross" in str(exception).lower()
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
 
