@@ -1989,6 +1989,51 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
+    def test_is_post_only_rejection_error_recognizes_gtx_order_reject(self):
+        rejection = IOError(
+            '400 - Due to the order could not be executed as maker, the Post Only order will be rejected. '
+            'The order will not be recorded in the order history. code: -5022'
+        )
+        other = IOError("400 - Unknown order sent. code: -2011")
+
+        self.assertTrue(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, other))
+
+    @aioresponses()
+    async def test_create_limit_maker_rejected_logs_warning_not_network(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        url = web_utils.private_rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "code": CONSTANTS.POST_ONLY_WOULD_MATCH_ERROR_CODE,
+            "msg": CONSTANTS.POST_ONLY_WOULD_MATCH_MESSAGE,
+        }
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=400)
+        self._simulate_trading_rules_initialized()
+
+        order_id = "OID-POST-ONLY"
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=self.trading_pair,
+            amount=Decimal("10000"),
+            order_type=OrderType.LIMIT_MAKER,
+            position_action=PositionAction.OPEN,
+            price=Decimal("10000"))
+        await asyncio.sleep(0.001)
+
+        self.assertNotIn(order_id, self.exchange._order_tracker._in_flight_orders)
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+            for record in self.log_records
+        ))
+
     @aioresponses()
     async def test_create_order_exception(self, req_mock):
         url = web_utils.private_rest_url(

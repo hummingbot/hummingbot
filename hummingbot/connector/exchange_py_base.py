@@ -196,6 +196,23 @@ class ExchangePyBase(ExchangeBase, ABC):
         return self.name.capitalize()
 
     @property
+    def account_group_id(self) -> Optional[str]:
+        """
+        Identifies the exchange-side account this connector reads, for connectors that are one of
+        several views onto the same account.
+
+        Unified-account venues expose one wallet through more than one connector - a Bitget UTA
+        is read by both bitget and bitget_perpetual, and Bybit and OKX have the same shape. Each connector reports that single wallet in full, so anything summing across
+        connectors counts the same funds once per connector.
+
+        Connectors backed by the same account return the same id, and it must be derived from the
+        account the credentials belong to rather than the connector name: two different accounts
+        must never be folded together. Returning None, the default, means this connector's
+        balance stands on its own and nothing changes.
+        """
+        return None
+
+    @property
     def tracking_states(self) -> Dict[str, any]:
         """
         Returns a dictionary associating current active orders client id to their JSON representation
@@ -217,6 +234,15 @@ class ExchangePyBase(ExchangeBase, ABC):
     @abstractmethod
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         raise NotImplementedError
+
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        """
+        Whether `exception` is the exchange's rejection of a LIMIT_MAKER order that would have
+        taken liquidity instead of resting as a maker order. An expected, well-understood outcome
+        of a post-only order, not a connectivity problem, so a connector that recognizes it from
+        `exception`'s text logs it as a warning instead of the generic NETWORK-level failure.
+        """
+        return False
 
     # === Price logic ===
 
@@ -508,12 +534,19 @@ class ExchangePyBase(ExchangeBase, ABC):
         exception: Exception,
         **kwargs,
     ):
-        self.logger().network(
-            f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
-            f"{amount} {trading_pair} {price}.",
-            exc_info=True,
-            app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
-        )
+        if self._is_post_only_rejection_error(order_type=order_type, exception=exception):
+            self.logger().warning(
+                f"{order_type.name.upper()} {trade_type.name.lower()} order for {amount} {trading_pair} at "
+                f"{price} on {self.name_cap} was rejected because it would not have rested as a maker order: "
+                f"{exception}"
+            )
+        else:
+            self.logger().network(
+                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
+                f"{amount} {trading_pair} {price}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
+            )
         self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair, exception=exception)
 
     def _update_order_after_failure(self, order_id: str, trading_pair: str, exception: Optional[Exception] = None):

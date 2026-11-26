@@ -318,6 +318,9 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             cancelation_exception
         ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        return order_type is OrderType.LIMIT_MAKER and "would immediately match and take liquidity" in str(exception)
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -403,15 +406,10 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
             if is_post_only_rejection:
                 side = "BUY" if trade_type is TradeType.BUY else "SELL"
-                self.logger().warning(
-                    f"LIMIT_MAKER {side} order for {trading_pair} rejected: "
-                    f"Order price {price} would immediately match and take liquidity. "
-                    f"LIMIT_MAKER orders can only be placed as maker orders (post-only). "
-                    f"Try adjusting your price to ensure the order is not immediately executable."
-                )
                 raise ValueError(
                     f"LIMIT_MAKER order would immediately match and take liquidity. "
-                    f"Price {price} crosses the spread for {side} order on {trading_pair}."
+                    f"Price {price} crosses the spread for {side} order on {trading_pair}. "
+                    f"Backpack error: {error_description}"
                 ) from e
 
             # Check for server overload

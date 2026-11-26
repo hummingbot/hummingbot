@@ -56,17 +56,17 @@ FUNDING_PAYMENT_TYPE = "8"
 # -------------------------------------------
 # WEB SOCKET ENDPOINTS
 # -------------------------------------------
-WSS_PUBLIC_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/public",
-                   AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/public",
-                   DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/public?brokerId=9999"}
+WSS_PUBLIC_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com/ws/{REST_API_VERSION}/public",
+                   AWS_DOMAIN: f"wss://wsaws.okx.com/ws/{REST_API_VERSION}/public",
+                   DEMO_DOMAIN: f"wss://wspap.okx.com/ws/{REST_API_VERSION}/public?brokerId=9999"}
 
-WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/private",
-                    AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/private",
-                    DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/private?brokerId=9999"}
+WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com/ws/{REST_API_VERSION}/private",
+                    AWS_DOMAIN: f"wss://wsaws.okx.com/ws/{REST_API_VERSION}/private",
+                    DEMO_DOMAIN: f"wss://wspap.okx.com/ws/{REST_API_VERSION}/private?brokerId=9999"}
 
-WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/business",
-                     AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
-                     DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
+WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com/ws/{REST_API_VERSION}/business",
+                     AWS_DOMAIN: f"wss://wsaws.okx.com/ws/{REST_API_VERSION}/business",
+                     DEMO_DOMAIN: f"wss://wspap.okx.com/ws/{REST_API_VERSION}/business?brokerId=9999"}
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"

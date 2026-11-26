@@ -1311,6 +1311,42 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(other))
         self.assertFalse(self.exchange._is_order_not_found_during_status_update_error(other))
 
+    def test_is_post_only_rejection_error_recognizes_post_only_cross(self):
+        rejection = IOError('Error executing request POST https://x. HTTP status is 400. '
+                            'Error: {"error":{"code":"invalid_order","details":"post only cross"}}')
+        other = IOError('Error executing request POST https://x. HTTP status is 400. '
+                        'Error: {"error":{"code":"invalid_parameters","message":"invalid"}}')
+
+        self.assertTrue(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, other))
+
+    @aioresponses()
+    def test_create_order_logs_limit_maker_rejection_as_warning_not_network(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        mock_api.post(self.order_creation_url,
+                      body=json.dumps({"error": {"code": "invalid_order", "details": "post only cross"}}),
+                      status=400)
+
+        order_id = "OID-POST-ONLY"
+        self.async_run_with_timeout(
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id=order_id,
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("1"),
+                                        order_type=OrderType.LIMIT_MAKER,
+                                        price=Decimal("10000"),
+                                        position_action=PositionAction.OPEN))
+
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+            for record in self.log_records
+        ))
+
     @aioresponses()
     async def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         # Overrides the generic test: only Kalshi's not_found counts towards losing an order, not any failed request
