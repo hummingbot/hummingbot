@@ -1158,6 +1158,43 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 price=Decimal("2"),
             ))
 
+    def test_is_post_only_rejection_error_recognizes_binance_2010(self):
+        rejection = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+                            "Error: {'code':-2010,'msg':'Order would immediately match and take.'}")
+        self.assertTrue(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, rejection))
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT, rejection))
+
+        other_error = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is "
+                              "400. Error: {'code':-1013,'msg':'Invalid quantity.'}")
+        self.assertFalse(self.exchange._is_post_only_rejection_error(OrderType.LIMIT_MAKER, other_error))
+
+    @aioresponses()
+    def test_create_order_logs_limit_maker_rejection_as_warning_not_network(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {"code": -2010, "msg": "Order would immediately match and take."}
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=400)
+
+        order_id = "OID-POST-ONLY"
+        self.async_run_with_timeout(
+            self.exchange._create_order(trade_type=TradeType.BUY,
+                                        order_id=order_id,
+                                        trading_pair=self.trading_pair,
+                                        amount=Decimal("1"),
+                                        order_type=OrderType.LIMIT_MAKER,
+                                        price=Decimal("10000")))
+
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual(1, len(self.order_failure_logger.event_log))
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and "was rejected because it would not have rested as a maker order" in record.getMessage()
+            for record in self.log_records
+        ))
+
     def test_format_trading_rules__min_notional_present(self):
         trading_rules = [{
             "symbol": "COINALPHAHBOT",

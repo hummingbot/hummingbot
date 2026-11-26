@@ -235,6 +235,15 @@ class ExchangePyBase(ExchangeBase, ABC):
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         raise NotImplementedError
 
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        """
+        Whether `exception` is the exchange's rejection of a LIMIT_MAKER order that would have
+        taken liquidity instead of resting as a maker order. An expected, well-understood outcome
+        of a post-only order, not a connectivity problem, so a connector that recognizes it from
+        `exception`'s text logs it as a warning instead of the generic NETWORK-level failure.
+        """
+        return False
+
     # === Price logic ===
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
@@ -525,12 +534,19 @@ class ExchangePyBase(ExchangeBase, ABC):
         exception: Exception,
         **kwargs,
     ):
-        self.logger().network(
-            f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
-            f"{amount} {trading_pair} {price}.",
-            exc_info=True,
-            app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
-        )
+        if self._is_post_only_rejection_error(order_type=order_type, exception=exception):
+            self.logger().warning(
+                f"{order_type.name.upper()} {trade_type.name.lower()} order for {amount} {trading_pair} at "
+                f"{price} on {self.name_cap} was rejected because it would not have rested as a maker order: "
+                f"{exception}"
+            )
+        else:
+            self.logger().network(
+                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
+                f"{amount} {trading_pair} {price}.",
+                exc_info=True,
+                app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
+            )
         self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair, exception=exception)
 
     def _update_order_after_failure(self, order_id: str, trading_pair: str, exception: Optional[Exception] = None):
