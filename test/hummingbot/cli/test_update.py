@@ -124,7 +124,7 @@ class UpdateCommandTest(unittest.TestCase):
         rebuild.assert_called_once()
         self.assertIn("extensions_rebuilt: yes", out)
 
-    def test_environment_change_adds_conda_note(self):
+    def test_environment_change_adds_install_note(self):
         def fake_git(*args):
             table = {
                 ("rev-parse", "--abbrev-ref"): "master",
@@ -136,8 +136,8 @@ class UpdateCommandTest(unittest.TestCase):
             for prefix, reply in table.items():
                 if args[:len(prefix)] == prefix:
                     return reply
-            if args[0] == "diff" and "setup/environment.yml" in args:
-                return "setup/environment.yml"
+            if args[0] == "diff" and "pyproject.toml" in args:
+                return "pyproject.toml"
             return ""
         patch.object(update_mod, "_git", side_effect=fake_git).start()
         patch.object(update_mod, "_rebuild_extensions").start()
