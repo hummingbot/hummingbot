@@ -29,6 +29,9 @@ PYTHONPATH=${PYTHONPATH}:${PWD}
         // "-v",  // optional: verbose output
 
         // From MakeFile (currently broken tests - KEEP UPDATED)
+        // dydx_v4_perpetual needs the optional "dydx" extra (v4_proto); a plain
+        // `make install`/`uv sync` doesn't install it, so leave this ignored like Makefile does.
+        "--ignore=test/hummingbot/connector/derivative/dydx_v4_perpetual/",
         "--ignore=test/hummingbot/remote_iface/",
         "--ignore=test/connector/utilities/oms_connector/",
         "--ignore=test/hummingbot/strategy/amm_arb/",
