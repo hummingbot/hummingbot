@@ -1,0 +1,320 @@
+import logging
+from decimal import Decimal
+from typing import List, Optional
+
+from pydantic import Field
+
+from hummingbot.core.data_type.common import MarketDict
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.executors.lp_amm_executor.data_types import LPAmmExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+
+
+class LPAmmRebalancerConfig(ControllerConfigBase):
+    """
+    Configuration for the full-range AMM LP controller.
+
+    Unlike LPRebalancerConfig (CLMM), there is no price-range/side logic here: a
+    constant-product AMM position is full-range and two-sided by construction, and
+    LPAmmExecutor already decides when to close itself (min_fee_apr_pct /
+    max_duration_seconds). This controller's job is just to keep one position open,
+    hand its config to a fresh LPAmmExecutor, and - if reopen_after_close is set -
+    open the next one once the previous one terminates cleanly.
+    """
+    controller_type: str = "generic"
+    controller_name: str = "lp_amm_rebalancer"
+    candles_config: List[CandlesConfig] = []
+
+    # Network connector - e.g., "solana-mainnet-beta"
+    connector_name: str = "solana-mainnet-beta"
+
+    # LP provider (required) - format: "dex/amm", e.g. "meteora/amm"
+    lp_provider: str = "meteora/amm"
+
+    # Swap provider (optional) - format: "dex/trading_type", used for the close-out
+    # swap when keep_position=False. None uses the network's default swap provider.
+    swap_provider: Optional[str] = None
+
+    # Pool configuration (required)
+    trading_pair: str
+    pool_address: str
+
+    # Position amounts, deposited as-is every time a position is (re)opened
+    base_amount: Decimal = Field(default=Decimal("0"), json_schema_extra={"is_updatable": True})
+    quote_amount: Decimal = Field(default=Decimal("0"), json_schema_extra={"is_updatable": True})
+
+    # Exit triggers, forwarded to LPAmmExecutorConfig as-is
+    min_fee_apr_pct: Optional[Decimal] = Field(default=None, json_schema_extra={"is_updatable": True})
+    min_fee_apr_window_seconds: float = Field(default=3600.0, json_schema_extra={"is_updatable": True})
+    max_duration_seconds: Optional[float] = Field(default=None, json_schema_extra={"is_updatable": True})
+
+    # True: on a self-triggered exit, keep the net token change as a held position
+    # instead of swapping back. Forwarded to LPAmmExecutorConfig as-is.
+    keep_position: bool = Field(default=False, json_schema_extra={"is_updatable": True})
+
+    slippage_pct: Decimal = Field(default=Decimal("0.05"), json_schema_extra={"is_updatable": True})
+
+    position_refresh_interval: float = Field(
+        default=1.0,
+        gt=0,
+        json_schema_extra={"is_updatable": False},
+        description="Minimum seconds between on-chain position reads made by the LP executor. "
+                    "Captured when the executor is created; not live-updatable."
+    )
+
+    # Once the active executor terminates cleanly, open a new position with the same
+    # base_amount/quote_amount. False: stop after the first position closes.
+    reopen_after_close: bool = Field(default=True, json_schema_extra={"is_updatable": True})
+
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        """Register the LP connector with trading pair"""
+        markets = markets.add_or_update(self.connector_name, self.trading_pair)
+        return markets
+
+
+class LPAmmRebalancer(ControllerBase):
+    """
+    Controller for full-range AMM LP position management.
+
+    Keeps at most one LPAmmExecutor active at a time. The executor itself owns the
+    exit decision (fee APR / max duration); this controller only reacts to it
+    terminating: clean terminations (COMPLETE/EARLY_STOP/POSITION_HOLD with the
+    position actually closed) feed position_hold bookkeeping and - if configured -
+    open the next position, while an unresolved on-chain position (hold_reason
+    close_retries_exhausted) halts new creation until it is recovered manually.
+    """
+
+    _logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
+    def __init__(self, config: LPAmmRebalancerConfig, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        self.config: LPAmmRebalancerConfig = config
+
+        self._current_executor_id: Optional[str] = None
+        # Set when a terminated executor still has a live on-chain position (close
+        # retries exhausted): halts new position creation until it is recovered
+        # manually, same contract as LPRebalancer's _orphaned_position_address.
+        self._orphaned_position_address: Optional[str] = None
+
+        # Position hold: cumulative net position from closed LP executors.
+        # Net = (returned + fee) - initial_deposited, same bookkeeping as LPRebalancer's.
+        self._position_hold_base: Decimal = Decimal("0")
+        self._position_hold_quote: Decimal = Decimal("0")
+
+        self._stopped_after_close: bool = False
+
+    def active_executor(self) -> Optional[ExecutorInfo]:
+        """Get the current active LP AMM executor (should be 0 or 1)."""
+        active = [e for e in self.executors_info
+                  if e.is_active and getattr(e.config, "type", None) == "lp_amm_executor"]
+        return active[0] if active else None
+
+    def get_tracked_executor(self) -> Optional[ExecutorInfo]:
+        """Get the executor we're currently tracking (by ID)."""
+        if not self._current_executor_id:
+            return None
+        for e in self.executors_info:
+            if e.id == self._current_executor_id:
+                return e
+        return None
+
+    def is_tracked_executor_terminated(self) -> bool:
+        """Check if the executor we created has terminated."""
+        if not self._current_executor_id:
+            return True
+        executor = self.get_tracked_executor()
+        if executor is None:
+            return True
+        return executor.status == RunnableStatus.TERMINATED
+
+    def determine_executor_actions(self) -> List[ExecutorAction]:
+        actions: List[ExecutorAction] = []
+
+        # An orphaned on-chain position (close retries exhausted) must be recovered
+        # before any new position is opened - creating a fresh executor here would
+        # stack live exposure on top of the stranded one.
+        if self._orphaned_position_address:
+            self.logger().debug(
+                f"Halted: position {self._orphaned_position_address} is still open on-chain "
+                "and requires manual recovery."
+            )
+            return actions
+
+        if self._stopped_after_close:
+            return actions
+
+        executor = self.active_executor()
+
+        if executor and not self._current_executor_id:
+            self._current_executor_id = executor.id
+            self.logger().info(f"Tracking executor: {executor.id}")
+
+        if executor is not None:
+            # Active executor exists - nothing to do, it closes itself.
+            return actions
+
+        if not self.is_tracked_executor_terminated():
+            tracked = self.get_tracked_executor()
+            self.logger().debug(
+                f"Waiting for executor {self._current_executor_id} to terminate "
+                f"(status: {tracked.status if tracked else 'not found'})"
+            )
+            return actions
+
+        # Either no executor has ever run, or the tracked one just terminated.
+        terminated_executor = self.get_tracked_executor()
+        self._current_executor_id = None
+
+        if terminated_executor is not None:
+            self._process_terminated_executor(terminated_executor)
+            if self._orphaned_position_address:
+                return actions
+            if not self.config.reopen_after_close:
+                self._stopped_after_close = True
+                self.logger().info("Position closed and reopen_after_close is False - not reopening.")
+                return actions
+
+        executor_config = self._create_executor_config()
+        actions.append(CreateExecutorAction(
+            controller_id=self.config.id,
+            executor_config=executor_config,
+        ))
+        return actions
+
+    def _process_terminated_executor(self, terminated_executor: ExecutorInfo) -> None:
+        """Book the terminated executor's net position change, and detect an orphan."""
+        custom = terminated_executor.custom_info
+        hold_reason = custom.get("hold_reason")
+
+        # A live on-chain position was left behind: halt new creation rather than
+        # stacking a second position on top of the stranded one.
+        if hold_reason == "close_retries_exhausted":
+            self._orphaned_position_address = (
+                custom.get("position_nft_address") or self.config.pool_address
+            )
+            self.logger().error(
+                f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
+                f"with a position still open on-chain in pool {self.config.pool_address}. "
+                "Halting new position creation until the position is closed or recovered manually."
+            )
+            return
+
+        # Nothing was ever deposited (FAILED with no position opened) - nothing to book.
+        if terminated_executor.close_type == CloseType.FAILED:
+            self.logger().warning(
+                f"Executor {terminated_executor.id} ended FAILED with nothing on-chain - "
+                "skipping position_hold update."
+            )
+            return
+
+        base_amount = Decimal(str(custom.get("base_amount", 0)))
+        quote_amount = Decimal(str(custom.get("quote_amount", 0)))
+        tx_fee = Decimal(str(custom.get("tx_fee", 0)))
+        initial_base = Decimal(str(custom.get("initial_base_amount", 0)))
+        initial_quote = Decimal(str(custom.get("initial_quote_amount", 0)))
+
+        base_net = base_amount - initial_base
+        quote_net = (quote_amount - tx_fee) - initial_quote
+        self._position_hold_base += base_net
+        self._position_hold_quote += quote_net
+
+        self.logger().info(
+            f"Executor {terminated_executor.id} completed ({terminated_executor.close_type}). "
+            f"Initial: base={initial_base}, quote={initial_quote}. Returned: base={base_amount}, "
+            f"quote={quote_amount} (tx_fee={tx_fee}). Net change: base={base_net:+}, quote={quote_net:+}. "
+            f"Position hold total: base={self._position_hold_base}, quote={self._position_hold_quote}"
+        )
+
+    def _create_executor_config(self) -> LPAmmExecutorConfig:
+        self.logger().info(
+            f"Creating LPAmmExecutor: pool={self.config.pool_address}, "
+            f"base={self.config.base_amount}, quote={self.config.quote_amount}"
+        )
+        return LPAmmExecutorConfig(
+            timestamp=self.market_data_provider.time(),
+            connector_name=self.config.connector_name,
+            lp_provider=self.config.lp_provider,
+            swap_provider=self.config.swap_provider,
+            trading_pair=self.config.trading_pair,
+            pool_address=self.config.pool_address,
+            base_amount=self.config.base_amount,
+            quote_amount=self.config.quote_amount,
+            position_refresh_interval=self.config.position_refresh_interval,
+            min_fee_apr_pct=self.config.min_fee_apr_pct,
+            min_fee_apr_window_seconds=self.config.min_fee_apr_window_seconds,
+            max_duration_seconds=self.config.max_duration_seconds,
+            slippage_pct=self.config.slippage_pct,
+            keep_position=self.config.keep_position,
+        )
+
+    async def update_processed_data(self):
+        """No external data needed - LPAmmExecutor reads pool price itself."""
+        pass
+
+    def to_format_status(self) -> List[str]:
+        status = []
+        box_width = 100
+
+        status.append("+" + "-" * box_width + "+")
+        header = f"| LP AMM Rebalancer: {self.config.trading_pair} on {self.config.connector_name}"
+        status.append(header + " " * (box_width - len(header) + 1) + "|")
+        status.append("+" + "-" * box_width + "+")
+
+        line = f"| Pool: {self.config.pool_address} | LP: {self.config.lp_provider}"
+        status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        line = (f"| Config: base={self.config.base_amount}, quote={self.config.quote_amount}, "
+                f"min_fee_apr_pct={self.config.min_fee_apr_pct}, "
+                f"max_duration_seconds={self.config.max_duration_seconds}, "
+                f"reopen_after_close={self.config.reopen_after_close}")
+        status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        status.append("|" + " " * box_width + "|")
+
+        if self._orphaned_position_address:
+            line = f"| HALTED: orphaned position {self._orphaned_position_address} needs manual recovery"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        executor = self.active_executor() or self.get_tracked_executor()
+        if executor and not executor.is_done:
+            custom = executor.custom_info
+            line = f"| Position: {custom.get('position_nft_address') or '(fungible LP share)'}"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+            base_amount = Decimal(str(custom.get("base_amount", 0)))
+            quote_amount = Decimal(str(custom.get("quote_amount", 0)))
+            total_value_quote = Decimal(str(custom.get("total_value_quote", 0)))
+            line = f"| Assets: {float(base_amount):.6f} base + {float(quote_amount):.6f} quote = {float(total_value_quote):.4f} quote"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+            fees_earned_quote = Decimal(str(custom.get("fees_earned_quote", 0)))
+            fee_apr_pct = custom.get("fee_apr_pct")
+            line = f"| Fees earned: {float(fees_earned_quote):.6f} quote | Fee APR: {fee_apr_pct}"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+            line = f"| State: {custom.get('state', 'UNKNOWN')}"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+        else:
+            line = "| Position: None"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        status.append("|" + " " * box_width + "|")
+        closed = [e for e in self.executors_info
+                  if e.is_done and getattr(e.config, "type", None) == "lp_amm_executor"]
+        line = (f"| Closed positions: {len(closed)} | "
+                f"Position hold: base={self._position_hold_base:+}, quote={self._position_hold_quote:+}")
+        status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        status.append("+" + "-" * box_width + "+")
+        return status
