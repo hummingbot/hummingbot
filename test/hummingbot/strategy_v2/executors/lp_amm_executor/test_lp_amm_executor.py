@@ -138,10 +138,11 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.base_amount, Decimal("1.0"))
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.ACTIVE)
 
-    async def test_create_position_ambiguous_nft_fails(self):
+    async def test_create_position_ambiguous_nft_holds(self):
         """Two new NFT positions appeared - cannot tell which is ours. The deposit
-        already landed, so this is FAILED (not retried) with a loud reconcile-by-hand log,
-        same limitation LPExecutor accepts for its own unresolvable case."""
+        already landed, so this must not resolve as FAILED (which the controller reads as
+        "nothing deposited, safe to reopen") - it terminates as an involuntary POSITION_HOLD
+        with a loud reconcile-by-hand log, same contract as close_retries_exhausted."""
         executor = self.get_executor()
         executor.lp_position_state.state = LPAmmExecutorStates.OPENING
 
@@ -156,7 +157,10 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor._create_position()
 
         self.assertFalse(executor.lp_position_state.position_opened)
-        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.FAILED)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "open_nft_unresolved")
+        self.assertTrue(executor._held_position_orders)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
     async def test_create_position_slippage_widens_and_retries(self):
         executor = self.get_executor()

@@ -426,12 +426,24 @@ class LPAmmExecutor(ExecutorBase):
                     if details:
                         new_addresses = {d.position_address for d in details} - before_addresses
                         if len(new_addresses) != 1:
-                            self._handle_create_failure(ValueError(
+                            # The deposit transaction CONFIRMED on-chain - funds are live in the
+                            # pool, not absent - so this must not become CloseType.FAILED, which
+                            # the controller reads as "nothing to book, safe to reopen" and would
+                            # deposit a second position on top of this unmanaged one. Terminate as
+                            # an involuntary POSITION_HOLD instead, same contract as
+                            # close_retries_exhausted, so the controller halts new creation until
+                            # the pool is reconciled by hand.
+                            self._hold_reason = "open_nft_unresolved"
+                            self._record_unclosed_position_marker()
+                            self.close_type = CloseType.POSITION_HOLD
+                            self.logger().error(
                                 f"Open transaction {signature} CONFIRMED on-chain but the opened NFT "
                                 f"position in pool {self.config.pool_address} could not be identified "
-                                f"({len(new_addresses)} new positions appeared, expected 1). A position "
-                                "is likely LIVE and unmanaged - reconcile this wallet by hand."
-                            ))
+                                f"({len(new_addresses)} new positions appeared, expected 1). Position is "
+                                "LIVE and unmanaged - terminating as an involuntary POSITION_HOLD "
+                                "(hold_reason=open_nft_unresolved); reconcile this wallet by hand."
+                            )
+                            self.stop()
                             return
                         nft_address = next(iter(new_addresses))
                         detail = next(d for d in details if d.position_address == nft_address)
@@ -1369,6 +1381,7 @@ class LPAmmExecutor(ExecutorBase):
             "total_value_quote": float(self.lp_position_state.current_value_quote(price)) if price else 0.0,
             "unrealized_pnl_quote": float(self.get_net_pnl_quote()),
             "tx_fee": float(self.lp_position_state.tx_fee),
+            "tx_fee_quote": float(self.lp_position_state.tx_fee * self._get_native_to_quote_rate()),
             "filled_amount_base": float(self.lp_position_state.base_amount),
             "filled_amount_quote": float(self.lp_position_state.quote_amount),
             "held_position_orders": self._held_position_orders,

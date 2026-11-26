@@ -198,8 +198,11 @@ class LPAmmRebalancer(ControllerBase):
         hold_reason = custom.get("hold_reason")
 
         # A live on-chain position was left behind: halt new creation rather than
-        # stacking a second position on top of the stranded one.
-        if hold_reason == "close_retries_exhausted":
+        # stacking a second position on top of the stranded one. Both reasons mean
+        # the deposit landed but the executor could not manage it any further -
+        # close_retries_exhausted (couldn't close it in time) and
+        # open_nft_unresolved (couldn't even identify which position it opened).
+        if hold_reason in ("close_retries_exhausted", "open_nft_unresolved"):
             self._orphaned_position_address = (
                 custom.get("position_nft_address") or self.config.pool_address
             )
@@ -220,19 +223,22 @@ class LPAmmRebalancer(ControllerBase):
 
         base_amount = Decimal(str(custom.get("base_amount", 0)))
         quote_amount = Decimal(str(custom.get("quote_amount", 0)))
-        tx_fee = Decimal(str(custom.get("tx_fee", 0)))
+        # tx_fee is paid in the network's native token (SOL, etc.), not quote - subtracting
+        # it straight from quote tokens would misprice the cost for any pair where the two
+        # differ. tx_fee_quote is the same fee already converted at the executor's own rate.
+        tx_fee_quote = Decimal(str(custom.get("tx_fee_quote", 0)))
         initial_base = Decimal(str(custom.get("initial_base_amount", 0)))
         initial_quote = Decimal(str(custom.get("initial_quote_amount", 0)))
 
         base_net = base_amount - initial_base
-        quote_net = (quote_amount - tx_fee) - initial_quote
+        quote_net = (quote_amount - tx_fee_quote) - initial_quote
         self._position_hold_base += base_net
         self._position_hold_quote += quote_net
 
         self.logger().info(
             f"Executor {terminated_executor.id} completed ({terminated_executor.close_type}). "
             f"Initial: base={initial_base}, quote={initial_quote}. Returned: base={base_amount}, "
-            f"quote={quote_amount} (tx_fee={tx_fee}). Net change: base={base_net:+}, quote={quote_net:+}. "
+            f"quote={quote_amount} (tx_fee_quote={tx_fee_quote}). Net change: base={base_net:+}, quote={quote_net:+}. "
             f"Position hold total: base={self._position_hold_base}, quote={self._position_hold_quote}"
         )
 

@@ -104,7 +104,7 @@ class TestLPAmmRebalancer(TestCase):
             RunnableStatus.TERMINATED,
             close_type=CloseType.COMPLETED,
             custom_info={
-                "base_amount": "1.1", "quote_amount": "95", "tx_fee": "0.01",
+                "base_amount": "1.1", "quote_amount": "95", "tx_fee_quote": "0.01",
                 "initial_base_amount": "1", "initial_quote_amount": "100",
             },
         )
@@ -125,7 +125,7 @@ class TestLPAmmRebalancer(TestCase):
             RunnableStatus.TERMINATED,
             close_type=CloseType.COMPLETED,
             custom_info={
-                "base_amount": "1", "quote_amount": "100", "tx_fee": "0",
+                "base_amount": "1", "quote_amount": "100", "tx_fee_quote": "0",
                 "initial_base_amount": "1", "initial_quote_amount": "100",
             },
         )
@@ -151,6 +151,50 @@ class TestLPAmmRebalancer(TestCase):
 
         self.assertEqual(actions, [])
         self.assertEqual(self.controller._orphaned_position_address, "nft-address")
+
+        # Halted even once the orphaned executor is no longer in executors_info.
+        self.controller.executors_info = []
+        self.assertEqual(self.controller.determine_executor_actions(), [])
+
+    def test_position_hold_uses_quote_denominated_fee_not_native(self):
+        """tx_fee is paid in the network's native token (e.g. SOL), not quote (e.g. USDC) -
+        booking it against tx_fee's raw value would misprice the cost for any pair where the
+        two differ. See Greptile finding "Fees use the wrong currency"."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.COMPLETED,
+            custom_info={
+                "base_amount": "1", "quote_amount": "99", "tx_fee": "0.01", "tx_fee_quote": "2.0",
+                "initial_base_amount": "1", "initial_quote_amount": "100",
+            },
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        self.controller.determine_executor_actions()
+
+        # quote_net = (99 - tx_fee_quote=2.0) - 100 = -3, NOT (99 - tx_fee=0.01) - 100 = -1.01
+        self.assertEqual(self.controller._position_hold_quote, Decimal("-3"))
+
+    def test_halts_on_unresolved_open_nft(self):
+        """A confirmed deposit whose NFT address could not be isolated ends as POSITION_HOLD
+        with hold_reason=open_nft_unresolved - funds are live on-chain but unmanaged, so this
+        must halt new creation the same way close_retries_exhausted does, not be treated as a
+        clean close that is safe to reopen on top of."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.POSITION_HOLD,
+            custom_info={"hold_reason": "open_nft_unresolved"},
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
 
         # Halted even once the orphaned executor is no longer in executors_info.
         self.controller.executors_info = []
