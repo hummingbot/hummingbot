@@ -200,6 +200,42 @@ class TestLPAmmRebalancer(TestCase):
         self.controller.executors_info = []
         self.assertEqual(self.controller.determine_executor_actions(), [])
 
+    def test_halts_on_unresolved_open_transaction(self):
+        """The add transaction's outcome was unresolved (TX_UNRESOLVED) - it may still
+        land on-chain. Must halt the same way open_nft_unresolved/close_retries_exhausted
+        do, not be treated as a safe-to-reopen FAILED."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.POSITION_HOLD,
+            custom_info={"hold_reason": "open_unresolved"},
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
+
+    def test_halts_on_failed_with_open_tx_hash(self):
+        """A FAILED terminal that still carries an open_tx_hash means the add transaction
+        was sent but its outcome is unproven - not the "nothing on-chain" FAILED case that
+        is safe to reopen on top of."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.FAILED,
+            custom_info={"open_tx_hash": "sig123"},
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
+
     def test_failed_executor_with_nothing_on_chain_does_not_update_position_hold(self):
         terminated = make_executor_info(
             "exec-1",

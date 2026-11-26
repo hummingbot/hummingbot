@@ -197,27 +197,30 @@ class LPAmmRebalancer(ControllerBase):
         custom = terminated_executor.custom_info
         hold_reason = custom.get("hold_reason")
 
-        # A live on-chain position was left behind: halt new creation rather than
-        # stacking a second position on top of the stranded one. Both reasons mean
-        # the deposit landed but the executor could not manage it any further -
-        # close_retries_exhausted (couldn't close it in time) and
-        # open_nft_unresolved (couldn't even identify which position it opened).
-        if hold_reason in ("close_retries_exhausted", "open_nft_unresolved"):
+        # FAILED with no open transaction in flight is a genuine pre-flight rejection -
+        # nothing was ever deposited, nothing to book, safe to reopen.
+        if terminated_executor.close_type == CloseType.FAILED and custom.get("open_tx_hash") is None:
+            self.logger().warning(
+                f"Executor {terminated_executor.id} ended FAILED with nothing on-chain - "
+                "skipping position_hold update."
+            )
+            return
+
+        # Any involuntary hold (hold_reason is only ever set for one - see
+        # LPAmmExecutorState's own contract) means the deposit landed, or may still land,
+        # and the executor could not manage it any further. A FAILED terminal that still
+        # carries an open_tx_hash is the same exposure under a different close_type: the
+        # add transaction's outcome was unresolved. Either way, halt new creation rather
+        # than stacking a second position on top of possibly-live exposure.
+        if hold_reason or terminated_executor.close_type == CloseType.FAILED:
             self._orphaned_position_address = (
                 custom.get("position_nft_address") or self.config.pool_address
             )
             self.logger().error(
                 f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
-                f"with a position still open on-chain in pool {self.config.pool_address}. "
-                "Halting new position creation until the position is closed or recovered manually."
-            )
-            return
-
-        # Nothing was ever deposited (FAILED with no position opened) - nothing to book.
-        if terminated_executor.close_type == CloseType.FAILED:
-            self.logger().warning(
-                f"Executor {terminated_executor.id} ended FAILED with nothing on-chain - "
-                "skipping position_hold update."
+                f"with a position still open (or unresolved) on-chain in pool "
+                f"{self.config.pool_address}. Halting new position creation until the "
+                "position is closed or recovered manually."
             )
             return
 
