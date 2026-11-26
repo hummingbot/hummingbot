@@ -1114,7 +1114,10 @@ class LPAmmExecutor(ExecutorBase):
         executing the same swap twice. There is no way from here to prove it did
         not land, so this skips the retry budget entirely and holds the withdrawn
         tokens instead - the one response that is safe regardless of which outcome
-        the first swap actually had.
+        the first swap actually had. It terminates with hold_reason=
+        closeout_swap_unresolved rather than closeout_swap_failed, since the swap
+        may still land and compete with a new deposit for the same funds - unlike
+        an ordinary close-out failure, where nothing further can happen on-chain.
         """
         self.lp_position_state.active_swap_order = None
         self._swap_failure_count += 1
@@ -1126,16 +1129,26 @@ class LPAmmExecutor(ExecutorBase):
                 "resubmitting could execute it twice - holding the withdrawn tokens instead of "
                 "retrying."
             )
-        else:
-            # Widen for the next quote when the market moved further than the tolerance.
-            self._widen_slippage(error)
+            # Unlike an ordinary close-out failure, the swap here may still confirm on-chain
+            # after this result - the withdrawn tokens are not reliably free. Tag it separately
+            # from closeout_swap_failed so callers that treat that reason as "safe to reopen"
+            # don't stack a new deposit on top of funds a pending swap could still consume.
+            self._hold_reason = "closeout_swap_unresolved"
+            self.close_type = CloseType.POSITION_HOLD
+            current_price = self._current_price if self._current_price else Decimal("0")
+            self._store_net_trade_from_withdrawal(current_price)
+            self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+            return
 
-            if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
-                self.logger().error(
-                    f"Close-out swap failed (attempt {self._swap_failure_count}/"
-                    f"{self.MAX_CLOSEOUT_SWAP_ATTEMPTS}): {error}. Retrying with a fresh quote."
-                )
-                return  # stay in SWAPPING; next tick re-places at market
+        # Widen for the next quote when the market moved further than the tolerance.
+        self._widen_slippage(error)
+
+        if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
+            self.logger().error(
+                f"Close-out swap failed (attempt {self._swap_failure_count}/"
+                f"{self.MAX_CLOSEOUT_SWAP_ATTEMPTS}): {error}. Retrying with a fresh quote."
+            )
+            return  # stay in SWAPPING; next tick re-places at market
 
         self.logger().error(
             f"Close-out swap failed after {self._swap_failure_count} attempt(s): {error}. "

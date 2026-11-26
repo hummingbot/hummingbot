@@ -206,10 +206,13 @@ class LPAmmRebalancer(ControllerBase):
             )
             return
 
-        # closeout_swap_failed means the LP withdrawal already landed on-chain - only the
-        # leftover-token close-out swap failed (or no swap_provider was configured). There is
-        # no open or unresolved position to protect, so book the withdrawal like a normal
-        # completion and stay eligible to reopen.
+        # closeout_swap_failed means the LP withdrawal already landed on-chain and the
+        # close-out swap definitively did not (rejected, cancelled, or no swap_provider) -
+        # there is no open or pending position to protect, so book the withdrawal like a
+        # normal completion and stay eligible to reopen. This deliberately excludes
+        # closeout_swap_unresolved: that swap's outcome is unknown and it may still land,
+        # competing with a new deposit for the same funds, so it falls through to the halt
+        # branch below like any other live-exposure hold.
         if hold_reason == "closeout_swap_failed":
             self.logger().warning(
                 f"Executor {terminated_executor.id} closed its LP position but the close-out "

@@ -262,6 +262,25 @@ class TestLPAmmRebalancer(TestCase):
         self.assertEqual(self.controller._position_hold_base, Decimal("0.1"))
         self.assertEqual(self.controller._position_hold_quote, Decimal("-5.01"))
 
+    def test_halts_on_unresolved_closeout_swap(self):
+        """closeout_swap_unresolved means the close-out swap's outcome is unknown and it
+        may still land on-chain, competing with a new deposit for the same funds - unlike
+        closeout_swap_failed, this must halt like any other live-exposure hold, not be
+        booked and reopened. Regression for Greptile's 2026-11-26 19:35 PR #8580 finding."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.POSITION_HOLD,
+            custom_info={"hold_reason": "closeout_swap_unresolved"},
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
+
     def test_failed_executor_with_nothing_on_chain_does_not_update_position_hold(self):
         terminated = make_executor_info(
             "exec-1",

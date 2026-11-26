@@ -1657,7 +1657,11 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         """An unresolved (ambiguous) swap result must never be retried: the first
         transaction may still land, and resubmitting could execute the swap twice.
         It goes straight to POSITION_HOLD instead of burning the normal retry
-        budget."""
+        budget, under its own hold_reason distinct from an ordinary close-out
+        failure - the swap may still confirm and compete with a new deposit for
+        the same funds, so the rebalancer's reopen-after-closeout-failure path
+        (hold_reason == "closeout_swap_failed") must not match it. Regression for
+        Greptile's 2026-11-26 19:35 PR #8580 finding."""
         executor = self.get_executor(self.get_default_config(swap_provider="jupiter/router"))
         executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
         executor.lp_position_state.base_amount = Decimal("1.5")
@@ -1670,7 +1674,7 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
         self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
-        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
+        self.assertEqual(executor._hold_reason, "closeout_swap_unresolved")
 
     # ---- fungible-LP withdrawal reconciliation (no double-withdrawal) -------
 
