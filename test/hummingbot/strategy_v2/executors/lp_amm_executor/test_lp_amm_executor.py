@@ -53,6 +53,10 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Same reasoning as _amm_lp_tx_fees above: a real dict so `.pop(order_id, None)`
         # returns the given default instead of another MagicMock.
         connector._amm_lp_removed_amounts = {}
+        # Same reasoning again: left as a MagicMock attribute, `.pop(order_id, False)`
+        # would return another MagicMock (truthy) instead of False, making every close
+        # look like a data-unavailable close.
+        connector._amm_lp_data_unavailable = {}
         connector.order_failure_reason = MagicMock(return_value=None)
 
         strategy.connectors = {"solana-mainnet-beta": connector}
@@ -504,6 +508,37 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.SWAPPING)
         self.assertFalse(executor.lp_position_state.position_opened)
+
+    async def test_close_position_data_unavailable_skips_closeout_swap(self):
+        """Gateway confirming the close but losing its response data must not be read
+        as 'withdrew nothing': that would size a close-out swap for the executor's
+        entire initial deposit instead of the real (unknown) shortfall. The amounts
+        from the last position read should survive untouched and no swap should fire."""
+        executor = self.get_executor()
+        executor.lp_position_state.position_opened = True
+        executor.lp_position_state.position_nft_address = "nft1"
+        executor.lp_position_state.base_amount = Decimal("1.0")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+        executor.close_type = CloseType.EARLY_STOP
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.0, quote=100.0,
+            positions=[make_position_detail("nft1", 1.0, 100.0)],
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
+        order_id = connector.create_market_order_id.return_value
+        connector._amm_lp_data_unavailable[order_id] = True
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+        self.assertTrue(executor.lp_position_state.close_data_unavailable)
+        self.assertEqual(executor.lp_position_state.base_amount, Decimal("1.0"))
+        self.assertEqual(executor.lp_position_state.quote_amount, Decimal("100.0"))
 
     async def test_execute_closeout_swap_sell_excess_base(self):
         """More base came out than went in: places a SELL for the excess."""

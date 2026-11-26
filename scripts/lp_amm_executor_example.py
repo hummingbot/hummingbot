@@ -7,7 +7,7 @@ from pydantic import Field
 from hummingbot.core.data_type.common import MarketDict
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.executors.lp_amm_executor.data_types import LPAmmExecutorConfig
-from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
 
 
 class LPAmmExecutorExampleConfig(StrategyV2ConfigBase):
@@ -87,6 +87,19 @@ class LPAmmExecutorExample(StrategyV2Base):
         self.config = config
         self._executor_created = False
         self._report_logged = False
+
+    def on_tick(self):
+        """StrategyV2Base.on_tick only runs the control loop when self.controllers is
+        non-empty - this example registers no controller, so the inherited tick would
+        never call create_actions_proposal. Re-run the same control loop here without
+        the controller-only steps (update_controllers_configs, per-controller report
+        push), which executor orchestration itself doesn't require.
+        """
+        self.update_executors_info()
+        if self.market_data_provider.ready and not self._is_stop_triggered:
+            executor_actions: List[ExecutorAction] = self.determine_executor_actions()
+            for action in executor_actions:
+                self.executor_orchestrator.execute_action(action)
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         if self._executor_created:

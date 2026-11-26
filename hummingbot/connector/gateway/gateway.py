@@ -141,6 +141,11 @@ class Gateway(GatewayBase):
         # stale by the time the transaction confirms (the pool trades in between),
         # so this is the authoritative amount to size a close-out swap from.
         self._amm_lp_removed_amounts: Dict[str, Tuple[Decimal, Decimal]] = {}
+        # order_id -> True when a confirmed AMM remove-liquidity call's response data
+        # was unavailable (see TX_DATA_UNAVAILABLE above): neither of the two dicts
+        # above is populated for that order_id, so the caller can tell "no data" apart
+        # from "removed nothing" and must not treat the missing amounts as zero.
+        self._amm_lp_data_unavailable: Dict[str, bool] = {}
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
@@ -1349,13 +1354,25 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
-                data = transaction_result.get("data", {})
-                fee = data.get("fee", transaction_result.get("fee", 0))
-                self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
-                self._amm_lp_removed_amounts[order_id] = (
-                    Decimal(str(data.get("baseTokenAmountRemoved", 0))),
-                    Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                )
+                if transaction_result.get(TX_DATA_UNAVAILABLE):
+                    # Same gap as _clmm_remove_liquidity: writing (0, 0) here would read
+                    # to the caller as "nothing came back", sizing a close-out swap for
+                    # the executor's ENTIRE initial deposit instead of the real shortfall.
+                    # Leave the dicts unset so the caller keeps its last known amounts
+                    # and flag the gap instead.
+                    self.logger().error(
+                        f"AMM remove liquidity {transaction_hash} confirmed on-chain but Gateway's "
+                        "response data is unavailable: removed amounts could NOT be booked."
+                    )
+                    self._amm_lp_data_unavailable[order_id] = True
+                else:
+                    data = transaction_result.get("data", {})
+                    fee = data.get("fee", transaction_result.get("fee", 0))
+                    self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
+                    self._amm_lp_removed_amounts[order_id] = (
+                        Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                    )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")

@@ -815,6 +815,20 @@ class LPAmmExecutor(ExecutorBase):
             removed_amounts = connector._amm_lp_removed_amounts.pop(order_id, None)
             if removed_amounts is not None:
                 self.lp_position_state.base_amount, self.lp_position_state.quote_amount = removed_amounts
+            data_unavailable = connector._amm_lp_data_unavailable.pop(order_id, False)
+            if data_unavailable:
+                # Gateway could not report what this removal actually paid out, so
+                # base_amount/quote_amount above are still the last (pre-close, possibly
+                # stale) read rather than (0, 0). Sizing a close-out swap from that would
+                # either trade on a guess or - had removed_amounts been zeroed - buy back
+                # the entire initial deposit (see gateway.py's _amm_remove_liquidity).
+                # Flag the gap and skip the swap rather than risk either.
+                self.lp_position_state.close_data_unavailable = True
+                self.logger().warning(
+                    f"Position close for {self.config.trading_pair} confirmed on-chain but withdrawn "
+                    "amounts are unavailable: skipping the close-out swap to avoid sizing it from "
+                    "unreliable data. Manual reconciliation of the wallet balance may be needed."
+                )
 
             current_price = self._current_price if self._current_price else Decimal("0")
             # Freeze LP fees earned now, before a close-out swap (below) can trade
@@ -833,7 +847,9 @@ class LPAmmExecutor(ExecutorBase):
             # back to the initial deposit's target. Stated positively, like
             # LPExecutor's, so an unexpected close_type skips the swap rather than
             # firing one nobody asked for.
-            if self.close_type == CloseType.EARLY_STOP:
+            if data_unavailable:
+                self.lp_position_state.state = LPAmmExecutorStates.COMPLETE
+            elif self.close_type == CloseType.EARLY_STOP:
                 base_diff = self._calculate_net_base_difference()
                 if abs(base_diff) > Decimal("0.000001"):
                     self.logger().info(
