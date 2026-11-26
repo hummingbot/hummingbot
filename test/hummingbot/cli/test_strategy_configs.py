@@ -386,6 +386,10 @@ class ResolverErrorsTest(unittest.TestCase):
         self.assertEqual(ctype, "generic")
         self.assertEqual(cls.__name__, "LPAmmRebalancerConfig")
 
+        cls, ctype = sc.resolve_controller_class_by_name("lp_rebalancer")
+        self.assertEqual(ctype, "generic")
+        self.assertEqual(cls.__name__, "LPRebalancerConfig")
+
     def test_resolve_script_config_class_finds_class(self):
         cls = sc.resolve_script_config_class("simple_pmm.py")
         self.assertEqual(cls.__name__, "SimplePMMConfig")
