@@ -12,7 +12,7 @@ Architecture:
 
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -136,6 +136,11 @@ class Gateway(GatewayBase):
         # that a full-range AMM deposit has none of - populating it here would crash
         # the next order-status poll with a KeyError instead of firing an event.
         self._amm_lp_tx_fees: Dict[str, Decimal] = {}
+        # order_id -> (base, quote) Gateway actually removed for a confirmed AMM
+        # remove-liquidity call. The caller's own pre-close position read can be
+        # stale by the time the transaction confirms (the pool trades in between),
+        # so this is the authoritative amount to size a close-out swap from.
+        self._amm_lp_removed_amounts: Dict[str, Tuple[Decimal, Decimal]] = {}
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
@@ -1347,6 +1352,10 @@ class Gateway(GatewayBase):
                 data = transaction_result.get("data", {})
                 fee = data.get("fee", transaction_result.get("fee", 0))
                 self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
+                self._amm_lp_removed_amounts[order_id] = (
+                    Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                    Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")

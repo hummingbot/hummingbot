@@ -50,6 +50,9 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # default), `.pop(order_id, Decimal("0"))` would return another MagicMock
         # instead of the given default, silently corrupting lp_position_state.tx_fee.
         connector._amm_lp_tx_fees = {}
+        # Same reasoning as _amm_lp_tx_fees above: a real dict so `.pop(order_id, None)`
+        # returns the given default instead of another MagicMock.
+        connector._amm_lp_removed_amounts = {}
         connector.order_failure_reason = MagicMock(return_value=None)
 
         strategy.connectors = {"solana-mainnet-beta": connector}

@@ -359,8 +359,14 @@ class LPAmmExecutor(ExecutorBase):
                 # The connector's failure contract: a caught transaction error is
                 # recorded on the order and swallowed into None, not re-raised.
                 # Treating that as a signature would book a deposit that never landed.
+                # Read the recorded reason (carries Gateway's "[code: ...]") rather than
+                # building a message without it, same as the withdrawal path below -
+                # otherwise _widen_slippage never matches a real SLIPPAGE_EXCEEDED
+                # rejection and a retryable failure goes straight to FAILED.
+                reason = connector.order_failure_reason(order_id)
                 self._handle_create_failure(ValueError(
                     f"Add liquidity for {self.config.trading_pair} returned no transaction signature"
+                    + (f" ({reason})" if reason else "")
                 ))
                 return
 
@@ -797,15 +803,18 @@ class LPAmmExecutor(ExecutorBase):
                 return
 
             self.logger().info(f"Position close confirmed, signature={signature}")
-            # _amm_remove_liquidity reports neither the removed amounts nor a close
-            # tx fee back to the caller (unlike the CLMM close, whose response data
-            # carries both) - the last amounts this executor read before closing are
-            # the best available accounting for what came out, since removing 100%
-            # returns what was last observed.
             self.lp_position_state.close_tx_hash = signature
             self.lp_position_state.active_close_order = None
             self.lp_position_state.tx_fee += connector._amm_lp_tx_fees.pop(order_id, Decimal("0"))
             self._last_close_attempt_wallet_lp_tokens = None
+
+            # The pool can trade between this executor's last position read and this
+            # removal's confirmation, so that pre-close read is stale by the time it's
+            # used to size a close-out swap. Gateway's own response carries what the
+            # removal actually paid out - prefer that over the stale read when present.
+            removed_amounts = connector._amm_lp_removed_amounts.pop(order_id, None)
+            if removed_amounts is not None:
+                self.lp_position_state.base_amount, self.lp_position_state.quote_amount = removed_amounts
 
             current_price = self._current_price if self._current_price else Decimal("0")
             # Freeze LP fees earned now, before a close-out swap (below) can trade
