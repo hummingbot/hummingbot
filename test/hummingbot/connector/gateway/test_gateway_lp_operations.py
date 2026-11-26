@@ -109,6 +109,33 @@ class GatewayLPRetryChokepointTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(2.5, gateway_instance.amm_remove_liquidity.call_args.kwargs["slippage_pct"])
 
+    async def test_amm_add_liquidity_uses_explicit_pool_address_without_resolving_default(self):
+        """A caller that already knows which pool to use (e.g. a non-default pool for
+        the pair) must have that pool used as-is, not silently overridden by the dex's
+        default pool for the trading pair."""
+        fake, gateway_instance = _fake_connector()
+        gateway_instance.amm_add_liquidity = AsyncMock(return_value={"signature": "sig", "status": 1})
+
+        await Gateway._amm_add_liquidity(
+            fake, TradeType.RANGE, "oid", "SOL-USDC", 100.0, 1.0, 2.0, dex_name="meteora",
+            pool_address="EXPLICIT_POOL",
+        )
+
+        fake.get_pool_address.assert_not_called()
+        self.assertEqual("EXPLICIT_POOL", gateway_instance.amm_add_liquidity.call_args.kwargs["pool_address"])
+
+    async def test_amm_remove_liquidity_uses_explicit_pool_address_without_resolving_default(self):
+        fake, gateway_instance = _fake_connector()
+        gateway_instance.amm_remove_liquidity = AsyncMock(return_value={"signature": "sig", "status": 1})
+
+        await Gateway._amm_remove_liquidity(
+            fake, TradeType.RANGE, "oid", "SOL-USDC", 100.0, dex_name="meteora",
+            position_address="POS", pool_address="EXPLICIT_POOL",
+        )
+
+        fake.get_pool_address.assert_not_called()
+        self.assertEqual("EXPLICIT_POOL", gateway_instance.amm_remove_liquidity.call_args.kwargs["pool_address"])
+
 
 class GatewayLPMissingResponseDataTest(unittest.IsolatedAsyncioTestCase):
     """A transaction reconciled from its signature comes back with no `data` block. The

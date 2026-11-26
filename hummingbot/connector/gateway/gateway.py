@@ -1042,6 +1042,7 @@ class Gateway(GatewayBase):
         trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
         position_address: Optional[str] = None,
+        pool_address: Optional[str] = None,
         max_retries: int = 10,
     ):
         """Opens a regular AMM liquidity position."""
@@ -1059,9 +1060,10 @@ class Gateway(GatewayBase):
                                   amount=Decimal(str(total_amount_in_base)),
                                   order_type=OrderType.AMM_ADD)
 
-        pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
         if not pool_address:
-            raise ValueError(f"Could not find pool for {trading_pair}")
+            pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
+            if not pool_address:
+                raise ValueError(f"Could not find pool for {trading_pair}")
 
         async def execute_add_liquidity() -> Dict[str, Any]:
             return await self._get_gateway_instance().amm_add_liquidity(
@@ -1318,14 +1320,16 @@ class Gateway(GatewayBase):
         dex_name: str,
         trading_type: str = "amm",
         position_address: Optional[str] = None,
+        pool_address: Optional[str] = None,
         slippage_pct: Optional[float] = None,
         fail_silently: bool = False,
         max_retries: int = 10,
     ):
         """Removes liquidity from an AMM pool."""
-        pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
         if not pool_address:
-            raise ValueError(f"Could not find pool for {trading_pair}")
+            pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
+            if not pool_address:
+                raise ValueError(f"Could not find pool for {trading_pair}")
 
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
