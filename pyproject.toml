@@ -24,6 +24,7 @@ dependencies = [
     "cryptography>=41.0.2",
     "decibel-python-sdk==0.2.1",
     "eth-account>=0.13.0",
+    "gql[aiohttp]>=3.4.1", # for dYdX v4; conda-forge split gql's aiohttp transport into "gql-with-aiohttp", PyPI's equivalent is the gql[aiohttp] extra
     "lighter-sdk==1.1.2",
     # NOT "msgpack-python": on PyPI that name is a dead alias frozen at 0.5.6 (2018), whose packb encodes
     # strings >31 bytes differently and so changes the Hyperliquid action hash (orders carry a 34-char cloid).
@@ -34,7 +35,11 @@ dependencies = [
     "pandas>=2.3.2",
     "pandas-ta>=0.4.71b",
     "prompt_toolkit>=3.0.39",
-    "protobuf>=4.23.3",
+    # v4-proto's own metadata only declares "protobuf>=4.23", far below the gencode version its
+    # wheel is actually compiled against -- resolving without this floor picks an older runtime
+    # (seen: 5.29.6) that protobuf's own gencode/runtime check then refuses at import time
+    # ("Detected incompatible Protobuf Gencode/Runtime versions ... gencode 6.31.1 runtime 5.29.6").
+    "protobuf>=6.31.1",
     "psutil>=5.9.5",
     "ptpython>3.0.25",
     "pydantic>=2",
@@ -56,28 +61,16 @@ dependencies = [
     "ujson>=5.7.0",
     # This needs to be restricted to <2.0 - tests fail otherwise
     "urllib3>=1.26.15,<2.0",
+    "v4-proto", # for dYdX v4; conda-forge packaged this same project as "dydxprotocol-v4-proto-py", PyPI's name is "v4-proto" (import name: v4_proto)
     "web3",
     "xrpl-py==4.4.0",
 ]
-
-[project.urls]
-Homepage = "https://github.com/hummingbot/hummingbot"
-
-[project.optional-dependencies]
-# Extra packages for the dYdX v4 build (`make install DYDX=1`), on top of the base dependencies.
 # (environment_dydx.yml also pinned "backports>=1.0" — dropped: nothing in the codebase imports
 # it directly, and it has no release compatible with every Python this project's requires-python
 # permits, which made dependency resolution unsatisfiable.)
-dydx = [
-    "v4-proto", # conda-forge packaged this same project as "dydxprotocol-v4-proto-py"; PyPI's name is "v4-proto" (import name: v4_proto)
-    "gql[aiohttp]>=3.4.1", # conda-forge split gql's aiohttp transport into "gql-with-aiohttp"; PyPI's equivalent is the gql[aiohttp] extra
-    # v4-proto's own metadata only declares "protobuf>=4.23", far below the gencode version its
-    # wheel is actually compiled against -- resolving the base "protobuf>=4.23.3" dependency
-    # without this floor picks an older runtime (seen: 5.29.6) that protobuf's own gencode/runtime
-    # check then refuses at import time ("Detected incompatible Protobuf Gencode/Runtime
-    # versions ... gencode 6.31.1 runtime 5.29.6").
-    "protobuf>=6.31.1",
-]
+
+[project.urls]
+Homepage = "https://github.com/hummingbot/hummingbot"
 
 [dependency-groups]
 # Exactly what `python setup.py build_ext --inplace` needs on top of the runtime dependencies
@@ -105,7 +98,7 @@ dev = [
 # the separate `setup.py build_ext --inplace` step.
 package = false
 # The Makefile/install/start scripts are bash-only (no native Windows support, same as the old
-# conda-based flow), and at least one dydx-extra dependency has no Windows distribution on PyPI
+# conda-based flow), and at least one dependency (v4-proto) has no Windows distribution on PyPI
 # (conda-forge built its own). Scope universal resolution to the platforms actually supported.
 environments = [
     "sys_platform == 'linux'",
