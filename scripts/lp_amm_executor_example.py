@@ -14,8 +14,10 @@ class LPAmmExecutorExampleConfig(StrategyV2ConfigBase):
     """
     Minimal runner for LPAmmExecutor: opens one full-range AMM position and lets the
     executor's own exit triggers (min_fee_apr_pct / max_duration_seconds) close it.
-    There is no controller for this executor yet - this script is the smallest way to
-    exercise it end-to-end against a real Gateway connector and pool.
+    For production use, see the controllers/generic/lp_amm_rebalancer controller,
+    which manages a reopening sequence of these executors. This script is the
+    single-executor smoke test: the smallest way to exercise LPAmmExecutor end-to-end
+    against a real Gateway connector and pool.
     """
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
 
@@ -136,3 +138,28 @@ class LPAmmExecutorExample(StrategyV2Base):
                 )
                 self._report_logged = True
         return []
+
+    def format_status(self) -> str:
+        """StrategyV2Base.format_status only prints executor tables inside its
+        "if self.controllers" branch - this script registers no controller, so the
+        inherited status would never show the one executor it runs. Append a line for
+        it here instead.
+        """
+        base_status = super().format_status()
+        if self.controllers or not self.ready_to_trade:
+            return base_status
+        executors = self.get_all_executors()
+        if not executors:
+            return base_status
+        executor = max(executors, key=lambda e: e.timestamp)
+        info = executor.custom_info
+        lines = [
+            base_status,
+            "",
+            "  LPAmmExecutor:",
+            f"    id: {executor.id} | status: {executor.status.name} | state: {info.get('state')} | "
+            f"pool: {info.get('pool_address')} | base amount: {info.get('base_amount')} | "
+            f"quote amount: {info.get('quote_amount')} | fees earned (quote): {info.get('fees_earned_quote')} | "
+            f"fee APR %: {info.get('fee_apr_pct')}",
+        ]
+        return "\n".join(lines)
