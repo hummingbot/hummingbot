@@ -1,5 +1,5 @@
 name: "Install environment and Hummingbot"
-description: "Installs conda environment, all libraries and compiles Hummingbot"
+description: "Installs the uv-managed venv, all libraries and compiles Hummingbot"
 inputs:
    program-cache-hit:
      required: true
@@ -10,24 +10,24 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # Install python/conda to check if core code has changed
-    - uses: actions/setup-python@v4
+    # uv reads .python-version and downloads a managed interpreter itself, so no
+    # actions/setup-python is needed. setup-uv's own cache is disabled because the
+    # workflow already caches ~/.cache/uv (the `uv-dependencies` step, whose
+    # cache-hit output gates the test steps); enabling both would cache it twice.
+    - name: Install uv
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
+      uses: astral-sh/setup-uv@v7
       with:
-        python-version: 3.x
+        version: "0.13.9"
+        enable-cache: false
 
-    # Install pre_commit if code has changed
-    - name: Install pre_commit
+    # .venv is not cached (it embeds the absolute path of its interpreter, which a
+    # fresh runner does not have), so the environment is rebuilt on every run that
+    # reaches the tests. Only uv's download/build cache is restored, which makes
+    # `uv sync` a matter of re-linking wheels when the lockfile has not changed.
+    - name: Install Hummingbot
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash
-      run: |
-        source $CONDA/etc/profile.d/conda.sh
-        conda install -c conda-forge pre_commit
-
-    # Install hummingbot env if environment.yml has changed
-    - name: Install Hummingbot
-      if: ${{inputs.dependencies-cache-hit}} != 'true'
-      shell: bash -l {0}
       run: |
         ./install
 
@@ -38,8 +38,6 @@ runs:
       env:
         WITHOUT_CYTHON_OPTIMIZATIONS: 'true'
       run: |
-        source $CONDA/etc/profile.d/conda.sh
-        conda info --envs
-        conda activate hummingbot
-        conda env export
+        source .venv/bin/activate
+        uv pip list
         ./compile
