@@ -134,6 +134,13 @@ class BinanceExchange(ExchangePyBase):
             cancelation_exception
         ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        return (
+            order_type is OrderType.LIMIT_MAKER
+            and str(CONSTANTS.POST_ONLY_WOULD_MATCH_ERROR_CODE) in str(exception)
+            and CONSTANTS.POST_ONLY_WOULD_MATCH_MESSAGE in str(exception)
+        )
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,

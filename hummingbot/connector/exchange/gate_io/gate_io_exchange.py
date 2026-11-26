@@ -114,6 +114,9 @@ class GateIoExchange(ExchangePyBase):
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return CONSTANTS.ERR_LABEL_ORDER_NOT_FOUND in str(cancelation_exception)
 
+    def _is_post_only_rejection_error(self, order_type: OrderType, exception: Exception) -> bool:
+        return order_type is OrderType.LIMIT_MAKER and "would immediately match and take liquidity" in str(exception)
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -220,13 +223,28 @@ class GateIoExchange(ExchangePyBase):
         # the underlying aiohttp will encode it to params
         data = data
         endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
-        order_result = await self._api_post(
-            path_url=endpoint,
-            data=data,
-            is_auth_required=True,
-            limit_id=endpoint,
-        )
+        try:
+            order_result = await self._api_post(
+                path_url=endpoint,
+                data=data,
+                is_auth_required=True,
+                limit_id=endpoint,
+            )
+        except IOError as e:
+            error_description = str(e)
+            if order_type is OrderType.LIMIT_MAKER and CONSTANTS.ERR_LABEL_POST_ONLY_WOULD_MATCH in error_description:
+                raise ValueError(
+                    f"LIMIT_MAKER order would immediately match and take liquidity. Price {price} crosses "
+                    f"the spread for {trade_type.name.lower()} order on {trading_pair}. Gate.io error: "
+                    f"{error_description}"
+                ) from e
+            raise
         if order_result.get("status") in {"cancelled"}:
+            if order_result.get("finish_as") == CONSTANTS.FINISH_AS_POST_ONLY_WOULD_MATCH:
+                raise ValueError(
+                    f"LIMIT_MAKER order would immediately match and take liquidity. Price {price} crosses "
+                    f"the spread for {trade_type.name.lower()} order on {trading_pair}."
+                )
             raise IOError({"label": "ORDER_REJECTED", "message": "Order rejected."})
         exchange_order_id = str(order_result["id"])
         return exchange_order_id, self.current_timestamp
