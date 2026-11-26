@@ -66,6 +66,12 @@ dependencies:
   - yaml>=0.2.5
   - zlib>=1.2.13
   - pip:
+    # Repeat of the conda pin above. conda's constraint does not reach pip: pip
+    # re-resolves this section afterwards and, once it backtracks, discards the
+    # already-installed aiohttp and takes the newest matching aiohttp>=3.0.0
+    # (declared by lighter-sdk). That lands on 3.14.x, which aioresponses cannot
+    # build responses for, failing every HTTP-mocked test.
+    - aiohttp>=3.8.5,<3.14
     - aiomqtt>=2.0.0
     - injective-py==1.14.*
     - decibel-python-sdk==0.2.1
