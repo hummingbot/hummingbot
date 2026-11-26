@@ -94,6 +94,21 @@ class GatewayLPRetryChokepointTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, fake._execute_with_retry.await_count)
         self.assertEqual("POS", gateway_instance.amm_remove_liquidity.call_args.kwargs["position_address"])
 
+    async def test_amm_remove_liquidity_forwards_slippage_pct(self):
+        """A withdrawal's slippage_pct must reach Gateway's AmmRemoveRequest, or the
+        user's max_slippage_pct (and the executor's widened retry tolerance) silently
+        has no effect on a remove - see Greptile finding "Withdrawals ignore user
+        limits"."""
+        fake, gateway_instance = _fake_connector()
+        gateway_instance.amm_remove_liquidity = AsyncMock(return_value={"signature": "sig", "status": 1})
+
+        await Gateway._amm_remove_liquidity(
+            fake, TradeType.RANGE, "oid", "SOL-USDC", 100.0, dex_name="meteora",
+            position_address="POS", slippage_pct=2.5,
+        )
+
+        self.assertEqual(2.5, gateway_instance.amm_remove_liquidity.call_args.kwargs["slippage_pct"])
+
 
 class GatewayLPMissingResponseDataTest(unittest.IsolatedAsyncioTestCase):
     """A transaction reconciled from its signature comes back with no `data` block. The

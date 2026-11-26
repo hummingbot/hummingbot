@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
@@ -228,6 +229,33 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         _, kwargs = connector._amm_remove_liquidity.call_args
         self.assertEqual(kwargs["position_address"], "nft1")
         self.assertEqual(kwargs["percentage"], 100.0)
+
+    async def test_close_position_forwards_slippage_pct(self):
+        """Without this, the executor's configured max_slippage_pct (and its widened
+        retry tolerance) has no effect on a withdrawal at all - Gateway falls back to
+        its own default. See Greptile finding "Withdrawals ignore user limits"."""
+        executor = self.get_executor()
+        executor.lp_position_state.position_opened = True
+        executor.lp_position_state.position_nft_address = "nft1"
+        executor.lp_position_state.base_amount = Decimal("1.0")
+        executor.lp_position_state.quote_amount = Decimal("100.0")
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor._current_price = Decimal("100")
+        executor.close_type = CloseType.EARLY_STOP
+        executor._slippage_pct = Decimal("2.5")  # widened by a prior retry
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.0, quote=100.0,
+            positions=[make_position_detail("nft1", 1.0, 100.0)],
+        ))
+        connector._amm_remove_liquidity = AsyncMock(return_value="sig-close")
+
+        await executor._close_position()
+
+        _, kwargs = connector._amm_remove_liquidity.call_args
+        self.assertEqual(kwargs["slippage_pct"], 2.5)
 
     async def test_close_position_keep_position_records_held_order(self):
         """Volume/POSITION_HOLD accounting: a POSITION_HOLD close records the net
@@ -726,6 +754,63 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertIsNone(executor.lp_position_state.position_nft_address)
         self.assertTrue(executor.lp_position_state.open_data_unavailable)
 
+    # ---- concurrent deposits into the same pool -----------------------------
+
+    async def test_create_position_holds_pool_lock_across_the_deposit(self):
+        """Two executors sharing a wallet and pool can each read the same LP
+        balance before depositing, then each treat the whole post-deposit
+        increase (including the other's minted tokens) as their own share -
+        see Greptile finding "Executors claim each other's tokens". The fix
+        serializes a deposit's snapshot -> add -> read against any other
+        executor on the same (connector_name, pool_address): verify the lock
+        is actually held for the whole span, not just acquired and dropped."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_user_positions = AsyncMock(return_value=[])
+
+        lock = executor._get_pool_deposit_lock(executor.config.connector_name, executor.config.pool_address)
+        add_liquidity_started = asyncio.Event()
+        release_add_liquidity = asyncio.Event()
+
+        async def amm_add_liquidity(**kwargs):
+            add_liquidity_started.set()
+            await release_add_liquidity.wait()
+            return "sig123"
+
+        connector._amm_add_liquidity = AsyncMock(side_effect=amm_add_liquidity)
+        connector.get_position_info_fresh = AsyncMock(return_value=make_position_info(
+            price=100.0, base=1.0, quote=100.0, positions=None,
+        ))
+
+        create_task = asyncio.ensure_future(executor._create_position())
+        await add_liquidity_started.wait()
+
+        self.assertTrue(lock.locked())
+
+        release_add_liquidity.set()
+        await create_task
+
+        self.assertFalse(lock.locked())
+        self.assertTrue(executor.lp_position_state.position_opened)
+
+    def test_pool_deposit_lock_is_shared_by_pool_not_by_executor(self):
+        """Two different executors on the same (connector_name, pool_address) must
+        contend for the same lock; a different pool gets its own."""
+        executor_a = self.get_executor(self.get_default_config(id="test-amm-a"))
+        executor_b = self.get_executor(self.get_default_config(id="test-amm-b"))
+        executor_other_pool = self.get_executor(self.get_default_config(id="test-amm-c", pool_address="pool456"))
+
+        self.assertIs(
+            executor_a._get_pool_deposit_lock("solana-mainnet-beta", "pool123"),
+            executor_b._get_pool_deposit_lock("solana-mainnet-beta", "pool123"),
+        )
+        self.assertIsNot(
+            executor_a._get_pool_deposit_lock("solana-mainnet-beta", "pool123"),
+            executor_other_pool._get_pool_deposit_lock("solana-mainnet-beta", "pool456"),
+        )
+
     # ---- fungible-LP own-share isolation ------------------------------------
 
     async def test_create_position_fungible_lp_tracks_own_lp_tokens(self):
@@ -1124,6 +1209,22 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_executor()
         executor.early_stop(keep_position=False)
         self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.COMPLETE)
+
+    def test_early_stop_swapping_preserves_close_type(self):
+        """A close-out swap already in flight settles on its own via
+        _execute_closeout_swap/_handle_swap_failure. Overwriting close_type here
+        would relabel that in-flight swap's outcome, and a normal fill would then
+        complete without ever saving the settled result - see Greptile finding
+        "Shutdown drops completed results"."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.SWAPPING
+        executor.close_type = CloseType.EARLY_STOP
+
+        executor.early_stop(keep_position=True)
+
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.SWAPPING)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
 
     # ---- _get_native_to_quote_rate ----------------------------------------
 

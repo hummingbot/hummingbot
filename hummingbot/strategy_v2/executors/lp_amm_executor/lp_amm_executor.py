@@ -46,12 +46,28 @@ class LPAmmExecutor(ExecutorBase):
     changes are needed for this executor.
     """
     _logger: Optional[HummingbotLogger] = None
+    # Serializes a fungible-LP deposit's snapshot -> add-liquidity -> post-read
+    # sequence per (connector_name, pool_address): two executors depositing into
+    # the same wallet's share of the same pool concurrently would otherwise both
+    # read the LP-token balance before either deposit lands, then each treat the
+    # WHOLE post-deposit increase (including the other's minted tokens) as its
+    # own share - see Greptile finding "Executors claim each other's tokens".
+    _pool_deposit_locks: Dict[Tuple[str, str], asyncio.Lock] = {}
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
+
+    @classmethod
+    def _get_pool_deposit_lock(cls, connector_name: str, pool_address: str) -> asyncio.Lock:
+        key = (connector_name, pool_address)
+        lock = cls._pool_deposit_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            cls._pool_deposit_locks[key] = lock
+        return lock
 
     def __init__(
         self,
@@ -338,137 +354,144 @@ class LPAmmExecutor(ExecutorBase):
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
         self.lp_position_state.active_open_order = TrackedOrder(order_id=order_id)
 
+        pool_lock = self._get_pool_deposit_lock(self.config.connector_name, self.config.pool_address)
         try:
-            before_addresses, before_lp_tokens = await self._snapshot_before_add(connector)
+            # Hold the pool-wide lock across the whole snapshot -> deposit -> read-after
+            # sequence: releasing it any earlier would let a concurrent executor's
+            # deposit land in the gap and get double-counted as this one's own share
+            # (or vice versa) by the fungible-LP branch below.
+            async with pool_lock:
+                before_addresses, before_lp_tokens = await self._snapshot_before_add(connector)
 
-            self.logger().info(f"Calling gateway to add AMM liquidity with order_id={order_id}")
-            signature = await connector._amm_add_liquidity(
-                trade_type=TradeType.RANGE,
-                order_id=order_id,
-                trading_pair=self.config.trading_pair,
-                price=float(price),
-                base_token_amount=float(self.config.base_amount),
-                quote_token_amount=float(self.config.quote_amount),
-                dex_name=self.lp_dex_name,
-                trading_type=self.lp_trading_type,
-                slippage_pct=float(self._slippage_pct),
-                max_retries=self._max_retries,
-            )
-
-            if not signature:
-                # The connector's failure contract: a caught transaction error is
-                # recorded on the order and swallowed into None, not re-raised.
-                # Treating that as a signature would book a deposit that never landed.
-                # Read the recorded reason (carries Gateway's "[code: ...]") rather than
-                # building a message without it, same as the withdrawal path below -
-                # otherwise _widen_slippage never matches a real SLIPPAGE_EXCEEDED
-                # rejection and a retryable failure goes straight to FAILED.
-                reason = connector.order_failure_reason(order_id)
-                self._handle_create_failure(ValueError(
-                    f"Add liquidity for {self.config.trading_pair} returned no transaction signature"
-                    + (f" ({reason})" if reason else "")
-                ))
-                return
-
-            self.lp_position_state.active_open_order = None
-            self.lp_position_state.open_tx_hash = signature
-            self.lp_position_state.tx_fee += connector._amm_lp_tx_fees.pop(order_id, Decimal("0"))
-            self._reset_slippage()
-
-            position_info = None
-            for attempt in range(3):
-                try:
-                    position_info = await connector.get_position_info_fresh(
-                        trading_pair=self.config.trading_pair,
-                        dex_name=self.lp_dex_name,
-                        trading_type=self.lp_trading_type,
-                        position_address=self.config.pool_address,
-                    )
-                    break
-                except Exception as info_error:
-                    self.logger().warning(
-                        f"Position info fetch after create failed (attempt {attempt + 1}/3): {info_error}"
-                    )
-                    if attempt < 2:
-                        await asyncio.sleep(1.0)
-
-            nft_address = None
-            own_lp_token_amount = None
-            base_amount = self.config.base_amount
-            quote_amount = self.config.quote_amount
-            current_price = price
-
-            if position_info is not None:
-                current_price = Decimal(str(position_info.price))
-                details = position_info.positions
-                if details:
-                    new_addresses = {d.position_address for d in details} - before_addresses
-                    if len(new_addresses) != 1:
-                        self._handle_create_failure(ValueError(
-                            f"Open transaction {signature} CONFIRMED on-chain but the opened NFT "
-                            f"position in pool {self.config.pool_address} could not be identified "
-                            f"({len(new_addresses)} new positions appeared, expected 1). A position "
-                            "is likely LIVE and unmanaged - reconcile this wallet by hand."
-                        ))
-                        return
-                    nft_address = next(iter(new_addresses))
-                    detail = next(d for d in details if d.position_address == nft_address)
-                    base_amount = Decimal(str(detail.base_token_amount))
-                    quote_amount = Decimal(str(detail.quote_token_amount))
-                else:
-                    # Fungible-LP pool: no per-position breakdown, so the connector's
-                    # reported base/quote amounts are the WALLET'S WHOLE holding in this
-                    # pool, not this deposit's own share (another executor, or a prior
-                    # manual deposit, may hold the rest). Isolate this deposit's own
-                    # share by the LP-token delta, then scale the wallet-wide base/quote
-                    # amounts by that share - otherwise a later close-out swap sized from
-                    # the unscaled wallet-wide amounts could trade funds this executor
-                    # never deposited.
-                    wallet_base_amount = Decimal(str(position_info.base_token_amount))
-                    wallet_quote_amount = Decimal(str(position_info.quote_token_amount))
-                    after_lp_tokens = Decimal(str(getattr(position_info, "lp_token_amount", 0) or 0))
-                    if before_lp_tokens is not None and after_lp_tokens > 0:
-                        own_lp_token_amount = after_lp_tokens - before_lp_tokens
-                        own_share = own_lp_token_amount / after_lp_tokens
-                        base_amount = wallet_base_amount * own_share
-                        quote_amount = wallet_quote_amount * own_share
-                    else:
-                        self.logger().warning(
-                            "Pre-deposit LP-token snapshot was unavailable: this executor cannot isolate "
-                            "its own share of a fungible-LP pool and will track the wallet's whole "
-                            "balance until closed."
-                        )
-                        base_amount = wallet_base_amount
-                        quote_amount = wallet_quote_amount
-            else:
-                self.logger().warning(
-                    "Position info fetch failed after a confirmed open: using config amounts as a "
-                    "fallback and leaving the NFT position address unresolved."
+                self.logger().info(f"Calling gateway to add AMM liquidity with order_id={order_id}")
+                signature = await connector._amm_add_liquidity(
+                    trade_type=TradeType.RANGE,
+                    order_id=order_id,
+                    trading_pair=self.config.trading_pair,
+                    price=float(price),
+                    base_token_amount=float(self.config.base_amount),
+                    quote_token_amount=float(self.config.quote_amount),
+                    dex_name=self.lp_dex_name,
+                    trading_type=self.lp_trading_type,
+                    slippage_pct=float(self._slippage_pct),
+                    max_retries=self._max_retries,
                 )
-                self.lp_position_state.open_data_unavailable = True
-                self._pending_nft_recovery = (before_addresses, before_lp_tokens)
 
-            self.lp_position_state.position_opened = True
-            self.lp_position_state.position_nft_address = nft_address
-            self.lp_position_state.own_lp_token_amount = own_lp_token_amount
-            self.lp_position_state.base_amount = base_amount
-            self.lp_position_state.quote_amount = quote_amount
-            self.lp_position_state.initial_base_amount = base_amount
-            self.lp_position_state.initial_quote_amount = quote_amount
-            self.lp_position_state.add_price = current_price
-            self.lp_position_state.add_timestamp = self._strategy.current_timestamp
-            self._current_price = current_price
+                if not signature:
+                    # The connector's failure contract: a caught transaction error is
+                    # recorded on the order and swallowed into None, not re-raised.
+                    # Treating that as a signature would book a deposit that never landed.
+                    # Read the recorded reason (carries Gateway's "[code: ...]") rather than
+                    # building a message without it, same as the withdrawal path below -
+                    # otherwise _widen_slippage never matches a real SLIPPAGE_EXCEEDED
+                    # rejection and a retryable failure goes straight to FAILED.
+                    reason = connector.order_failure_reason(order_id)
+                    self._handle_create_failure(ValueError(
+                        f"Add liquidity for {self.config.trading_pair} returned no transaction signature"
+                        + (f" ({reason})" if reason else "")
+                    ))
+                    return
 
-            self.logger().info(
-                f"AMM position opened in pool {self.config.pool_address}"
-                f"{f' (nft {nft_address})' if nft_address else ''}: "
-                f"base={base_amount}, quote={quote_amount}"
-            )
+                self.lp_position_state.active_open_order = None
+                self.lp_position_state.open_tx_hash = signature
+                self.lp_position_state.tx_fee += connector._amm_lp_tx_fees.pop(order_id, Decimal("0"))
+                self._reset_slippage()
 
-            if self._close_after_open:
-                self.logger().info("Create resolved after early_stop: closing immediately.")
-                self.lp_position_state.state = LPAmmExecutorStates.CLOSING
-                return
+                position_info = None
+                for attempt in range(3):
+                    try:
+                        position_info = await connector.get_position_info_fresh(
+                            trading_pair=self.config.trading_pair,
+                            dex_name=self.lp_dex_name,
+                            trading_type=self.lp_trading_type,
+                            position_address=self.config.pool_address,
+                        )
+                        break
+                    except Exception as info_error:
+                        self.logger().warning(
+                            f"Position info fetch after create failed (attempt {attempt + 1}/3): {info_error}"
+                        )
+                        if attempt < 2:
+                            await asyncio.sleep(1.0)
+
+                nft_address = None
+                own_lp_token_amount = None
+                base_amount = self.config.base_amount
+                quote_amount = self.config.quote_amount
+                current_price = price
+
+                if position_info is not None:
+                    current_price = Decimal(str(position_info.price))
+                    details = position_info.positions
+                    if details:
+                        new_addresses = {d.position_address for d in details} - before_addresses
+                        if len(new_addresses) != 1:
+                            self._handle_create_failure(ValueError(
+                                f"Open transaction {signature} CONFIRMED on-chain but the opened NFT "
+                                f"position in pool {self.config.pool_address} could not be identified "
+                                f"({len(new_addresses)} new positions appeared, expected 1). A position "
+                                "is likely LIVE and unmanaged - reconcile this wallet by hand."
+                            ))
+                            return
+                        nft_address = next(iter(new_addresses))
+                        detail = next(d for d in details if d.position_address == nft_address)
+                        base_amount = Decimal(str(detail.base_token_amount))
+                        quote_amount = Decimal(str(detail.quote_token_amount))
+                    else:
+                        # Fungible-LP pool: no per-position breakdown, so the connector's
+                        # reported base/quote amounts are the WALLET'S WHOLE holding in this
+                        # pool, not this deposit's own share (another executor, or a prior
+                        # manual deposit, may hold the rest). Isolate this deposit's own
+                        # share by the LP-token delta, then scale the wallet-wide base/quote
+                        # amounts by that share - otherwise a later close-out swap sized from
+                        # the unscaled wallet-wide amounts could trade funds this executor
+                        # never deposited. pool_lock (above) keeps this delta from also
+                        # picking up a concurrent executor's own deposit into the same pool.
+                        wallet_base_amount = Decimal(str(position_info.base_token_amount))
+                        wallet_quote_amount = Decimal(str(position_info.quote_token_amount))
+                        after_lp_tokens = Decimal(str(getattr(position_info, "lp_token_amount", 0) or 0))
+                        if before_lp_tokens is not None and after_lp_tokens > 0:
+                            own_lp_token_amount = after_lp_tokens - before_lp_tokens
+                            own_share = own_lp_token_amount / after_lp_tokens
+                            base_amount = wallet_base_amount * own_share
+                            quote_amount = wallet_quote_amount * own_share
+                        else:
+                            self.logger().warning(
+                                "Pre-deposit LP-token snapshot was unavailable: this executor cannot isolate "
+                                "its own share of a fungible-LP pool and will track the wallet's whole "
+                                "balance until closed."
+                            )
+                            base_amount = wallet_base_amount
+                            quote_amount = wallet_quote_amount
+                else:
+                    self.logger().warning(
+                        "Position info fetch failed after a confirmed open: using config amounts as a "
+                        "fallback and leaving the NFT position address unresolved."
+                    )
+                    self.lp_position_state.open_data_unavailable = True
+                    self._pending_nft_recovery = (before_addresses, before_lp_tokens)
+
+                self.lp_position_state.position_opened = True
+                self.lp_position_state.position_nft_address = nft_address
+                self.lp_position_state.own_lp_token_amount = own_lp_token_amount
+                self.lp_position_state.base_amount = base_amount
+                self.lp_position_state.quote_amount = quote_amount
+                self.lp_position_state.initial_base_amount = base_amount
+                self.lp_position_state.initial_quote_amount = quote_amount
+                self.lp_position_state.add_price = current_price
+                self.lp_position_state.add_timestamp = self._strategy.current_timestamp
+                self._current_price = current_price
+
+                self.logger().info(
+                    f"AMM position opened in pool {self.config.pool_address}"
+                    f"{f' (nft {nft_address})' if nft_address else ''}: "
+                    f"base={base_amount}, quote={quote_amount}"
+                )
+
+                if self._close_after_open:
+                    self.logger().info("Create resolved after early_stop: closing immediately.")
+                    self.lp_position_state.state = LPAmmExecutorStates.CLOSING
+                    return
 
             self.lp_position_state.update_state()
 
@@ -771,6 +794,7 @@ class LPAmmExecutor(ExecutorBase):
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
                 position_address=self.lp_position_state.position_nft_address,
+                slippage_pct=float(self._slippage_pct),
                 max_retries=0,
             )
 
@@ -1144,6 +1168,20 @@ class LPAmmExecutor(ExecutorBase):
                 the net token change is tracked as a spot position.
         """
         self._status = RunnableStatus.SHUTTING_DOWN
+
+        if self.lp_position_state.state == LPAmmExecutorStates.SWAPPING:
+            # The close-out swap is already in flight (or tracked) and settles on
+            # its own via _execute_closeout_swap/_handle_swap_failure - the
+            # close_type decided when SWAPPING began already reflects the right
+            # terminal. Overwriting it here would relabel that in-flight swap's
+            # outcome without changing what actually happens to it, and a normal
+            # fill would then complete without ever saving the settled result
+            # (Greptile finding "Shutdown drops completed results").
+            self.logger().info(
+                "early_stop during SWAPPING: leaving the in-flight close-out swap's close_type unchanged."
+            )
+            return
+
         self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
 
         if self.lp_position_state.state == LPAmmExecutorStates.ACTIVE:

@@ -1648,6 +1648,7 @@ class GatewayHttpClient:
         dex: str,
         trading_type: str = "amm",
         position_address: Optional[str] = None,
+        slippage_pct: Optional[float] = None,
         chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
@@ -1664,6 +1665,8 @@ class GatewayHttpClient:
             position_address: The specific position (NFT) to remove from. REQUIRED by
                 Meteora DAMM v2, whose positions are non-fungible and where a wallet may
                 hold several per pool; ignored by fungible-LP AMMs.
+            slippage_pct: Maximum acceptable slippage percentage; None uses the
+                connector's configured slippagePct.
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
@@ -1675,6 +1678,7 @@ class GatewayHttpClient:
                 poolAddress=pool_address,
                 percentageToRemove=percentage,
                 positionAddress=position_address,
+                slippagePct=slippage_pct,
             )
         )
 

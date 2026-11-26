@@ -1318,6 +1318,7 @@ class Gateway(GatewayBase):
         dex_name: str,
         trading_type: str = "amm",
         position_address: Optional[str] = None,
+        slippage_pct: Optional[float] = None,
         fail_silently: bool = False,
         max_retries: int = 10,
     ):
@@ -1341,6 +1342,7 @@ class Gateway(GatewayBase):
                 dex=dex_name,
                 trading_type=trading_type,
                 position_address=position_address,
+                slippage_pct=slippage_pct,
                 fail_silently=fail_silently
             )
 
