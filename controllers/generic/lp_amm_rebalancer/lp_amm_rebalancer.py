@@ -206,12 +206,23 @@ class LPAmmRebalancer(ControllerBase):
             )
             return
 
-        # Any involuntary hold (hold_reason is only ever set for one - see
-        # LPAmmExecutorState's own contract) means the deposit landed, or may still land,
-        # and the executor could not manage it any further. A FAILED terminal that still
-        # carries an open_tx_hash is the same exposure under a different close_type: the
-        # add transaction's outcome was unresolved. Either way, halt new creation rather
-        # than stacking a second position on top of possibly-live exposure.
+        # closeout_swap_failed means the LP withdrawal already landed on-chain - only the
+        # leftover-token close-out swap failed (or no swap_provider was configured). There is
+        # no open or unresolved position to protect, so book the withdrawal like a normal
+        # completion and stay eligible to reopen.
+        if hold_reason == "closeout_swap_failed":
+            self.logger().warning(
+                f"Executor {terminated_executor.id} closed its LP position but the close-out "
+                "swap failed - booking the withdrawal and remaining eligible to reopen."
+            )
+            self._book_net_position(terminated_executor, custom)
+            return
+
+        # Any other involuntary hold means the deposit landed, or may still land, and the
+        # executor could not manage it any further. A FAILED terminal that still carries an
+        # open_tx_hash is the same exposure under a different close_type: the add
+        # transaction's outcome was unresolved. Either way, halt new creation rather than
+        # stacking a second position on top of possibly-live exposure.
         if hold_reason or terminated_executor.close_type == CloseType.FAILED:
             self._orphaned_position_address = (
                 custom.get("position_nft_address") or self.config.pool_address
@@ -224,6 +235,9 @@ class LPAmmRebalancer(ControllerBase):
             )
             return
 
+        self._book_net_position(terminated_executor, custom)
+
+    def _book_net_position(self, terminated_executor: ExecutorInfo, custom: dict) -> None:
         base_amount = Decimal(str(custom.get("base_amount", 0)))
         quote_amount = Decimal(str(custom.get("quote_amount", 0)))
         # tx_fee is paid in the network's native token (SOL, etc.), not quote - subtracting

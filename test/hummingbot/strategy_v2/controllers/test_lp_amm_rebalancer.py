@@ -236,6 +236,32 @@ class TestLPAmmRebalancer(TestCase):
         self.assertEqual(actions, [])
         self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
 
+    def test_reopens_after_closeout_swap_failure(self):
+        """The LP withdrawal already landed on-chain before the close-out swap failed (or
+        no swap_provider was configured) - there is no open or unresolved position to
+        protect, unlike the other hold_reason values, so the controller must book the
+        withdrawal and stay eligible to reopen rather than halting forever."""
+        terminated = make_executor_info(
+            "exec-1",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.POSITION_HOLD,
+            custom_info={
+                "hold_reason": "closeout_swap_failed",
+                "base_amount": "1.1", "quote_amount": "95", "tx_fee_quote": "0.01",
+                "initial_base_amount": "1", "initial_quote_amount": "100",
+            },
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [terminated]
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(len(actions), 1)
+        self.assertIsInstance(actions[0], CreateExecutorAction)
+        self.assertIsNone(self.controller._orphaned_position_address)
+        self.assertEqual(self.controller._position_hold_base, Decimal("0.1"))
+        self.assertEqual(self.controller._position_hold_quote, Decimal("-5.01"))
+
     def test_failed_executor_with_nothing_on_chain_does_not_update_position_hold(self):
         terminated = make_executor_info(
             "exec-1",
