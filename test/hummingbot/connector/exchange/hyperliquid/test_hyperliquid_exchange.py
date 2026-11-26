@@ -2017,6 +2017,57 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             self.exchange._is_order_not_found_during_cancelation_error(exception_context.exception)
         )
 
+    # Every status listed under "Query order status by oid or cloid" in the Hyperliquid info endpoint docs.
+    DOCUMENTED_ORDER_STATUSES = [
+        "open", "filled", "canceled", "triggered", "rejected", "marginCanceled", "vaultWithdrawalCanceled",
+        "openInterestCapCanceled", "selfTradeCanceled", "reduceOnlyCanceled", "siblingFilledCanceled",
+        "delistedCanceled", "liquidatedCanceled", "scheduledCancel", "tickRejected", "minTradeNtlRejected",
+        "perpMarginRejected", "reduceOnlyRejected", "badAloPxRejected", "iocCancelRejected",
+        "badTriggerPxRejected", "marketOrderNoLiquidityRejected", "positionIncreaseAtOpenInterestCapRejected",
+        "positionFlipAtOpenInterestCapRejected", "tooAggressiveAtOpenInterestCapRejected",
+        "openInterestIncreaseRejected", "insufficientSpotBalanceRejected", "oracleRejected",
+        "perpMaxPositionRejected",
+    ]
+
+    def test_order_state_maps_every_documented_order_status(self):
+        missing = [status for status in self.DOCUMENTED_ORDER_STATUSES if status not in CONSTANTS.ORDER_STATE]
+        self.assertEqual([], missing)
+        for status in self.DOCUMENTED_ORDER_STATUSES:
+            if status.endswith("Rejected"):
+                self.assertEqual(OrderState.FAILED, CONSTANTS.ORDER_STATE[status], status)
+            elif status.endswith("Canceled") or status == "scheduledCancel":
+                self.assertEqual(OrderState.CANCELED, CONSTANTS.ORDER_STATE[status], status)
+        # A triggered trigger order becomes a resting or executing order, so it stays open.
+        self.assertEqual(OrderState.OPEN, CONSTANTS.ORDER_STATE["triggered"])
+
+    def _process_order_status_update(self, status: str) -> InFlightOrder:
+        self.exchange.start_tracking_order(
+            order_id="0x48424f54424548554436306163303099",  # noqa: mock
+            exchange_order_id="9999",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303099"]  # noqa: mock
+        event = self.order_event_for_canceled_order_websocket_update(order)
+        event["data"][0]["status"] = status
+        self.exchange._process_order_message(event["data"][0])
+        # The order tracker applies the update in a task scheduled on the event loop.
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        return order
+
+    def test_user_stream_margin_canceled_order_is_marked_canceled(self):
+        order = self._process_order_status_update("marginCanceled")
+        self.assertTrue(order.is_cancelled)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+    def test_user_stream_ioc_cancel_rejected_order_is_marked_failed(self):
+        order = self._process_order_status_update("iocCancelRejected")
+        self.assertTrue(order.is_failure)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
 
 class HyperliquidBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid spot connector."""
