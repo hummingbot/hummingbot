@@ -42,6 +42,12 @@ TESTNET_DOMAIN_SEPARATOR = compute_domain_separator(TESTNET_CHAIN_ID, MATCHING_C
 SIGNATURE_VALIDITY_SEC = 60 * 60
 
 MARKET_ORDER_SLIPPAGE = 0.05
+# How far inside the exchange's price band a market order is kept, as a share of the band's width.
+# The band follows the mark and public/get_ticker can be several seconds old, so a price on the very
+# edge of the band it reports may already be beyond the one the order meets.
+MARKET_ORDER_BAND_MARGIN = 0.05
+# How long, in seconds, a market order waits for the ticker before it is priced from the order book.
+MARKET_ORDER_TICKER_TIMEOUT = 5.0
 
 # Base URL
 BASE_URL = "https://api.derive.xyz/v3"

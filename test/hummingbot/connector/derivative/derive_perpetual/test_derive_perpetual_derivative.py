@@ -3482,24 +3482,286 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertIn("the requested 20x was not applied", message)
         self.assertIn(f"The maximum for {self.trading_pair} is 15.15x", message)
 
+    def _place_order_against_venue(
+        self,
+        trade_type: TradeType,
+        ticker: Any,
+        mid_price: Optional[str] = None,
+        tick_size: str = "0.01",
+        order_type: OrderType = OrderType.MARKET,
+        price: Decimal = Decimal("NaN"),
+    ) -> Tuple[str, List[str], List[Dict[str, Any]]]:
+        """
+        Places an order against a venue that answers public/get_ticker with `ticker` (or raises it)
+        and refuses a limit price beyond that ticker's band with 11013, as reported in #8564.
+        Without a mid price there is no order book for the pair, as before its first snapshot.
+
+        :return: the order id, the paths requested and the bodies of the orders submitted
+        """
+        self._simulate_trading_rules_initialized()
+        self.exchange._trading_rules[self.trading_pair].min_price_increment = Decimal(tick_size)
+        paths, orders = [], []
+
+        async def api_post(path_url, data=None, **_):
+            paths.append(path_url)
+            if path_url == CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL:
+                if isinstance(ticker, BaseException):
+                    raise ticker
+                return await ticker() if callable(ticker) else ticker
+            orders.append(data)
+            band = (ticker.get("result") or {}) if isinstance(ticker, dict) else {}
+            limit_price = Decimal(data["limit_price"])
+            too_high = data["is_bid"] and limit_price > Decimal(band.get("maxp") or "Infinity")
+            too_low = not data["is_bid"] and limit_price < Decimal(band.get("minp") or "0")
+            if order_type is OrderType.MARKET and (too_high or too_low):
+                return {"error": {"code": 11013, "message": "Invalid limit price"}}
+            return self.order_creation_request_successful_mock_response
+
+        self.exchange._api_post = api_post
+        place = self.exchange.buy if trade_type is TradeType.BUY else self.exchange.sell
+
+        async def run():
+            order_id = place(
+                self.trading_pair, Decimal("1"), order_type, price, position_action=PositionAction.CLOSE
+            )
+            for _ in range(20):
+                await asyncio.sleep(0.005)
+            return order_id
+
+        if mid_price is None:
+            self.assertNotIn(self.trading_pair, self.exchange.order_book_tracker.order_books)
+            order_id = self.async_run_with_timeout(run())
+        else:
+            with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal(mid_price)):
+                order_id = self.async_run_with_timeout(run())
+        return order_id, paths, orders
+
+    @staticmethod
+    def _slim_ticker(**overrides) -> Dict[str, Any]:
+        # A public/get_ticker answer, trimmed to the fields a market order is priced from.
+        ticker = {"M": "1717.26", "I": "1716.88", "minp": "1683.6", "maxp": "1751.61", **overrides}
+        return {"result": {key: value for key, value in ticker.items() if value is not None}}
+
+    def test_market_orders_do_not_need_an_order_book(self):
+        for trade_type, expected in ((TradeType.BUY, "1748.20"), (TradeType.SELL, "1687.01")):
+            with self.subTest(trade_type=trade_type):
+                order_id, _, orders = self._place_order_against_venue(trade_type, self._slim_ticker())
+
+                self.assertEqual(1, len(orders))
+                self.assertEqual(Decimal(expected), Decimal(orders[0]["limit_price"]))
+                self.assertEqual("market", orders[0]["order_type"])
+                self.assertEqual(CONSTANTS.TIME_IN_FORCE_IOC, orders[0]["time_in_force"])
+                self.assertTrue(orders[0]["reduce_only"])
+                self.assertEqual(Decimal(expected), self.exchange.in_flight_orders[order_id].price)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+
     def test_market_orders_are_priced_through_the_mid(self):
         """
         Priced at the bare mid, an IOC market order cannot cross the spread: it is refused with
-        11009 "no liquidity within the limit price". A limit beyond the exchange's price band is
-        accepted and simply fills at the book, so the buffer does not need to stay inside it.
+        11009 "no liquidity within the limit price".
         """
-        self._simulate_trading_rules_initialized()
-        with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal("10000")), \
-                patch.object(DerivePerpetualDerivative, "_create_order", new_callable=AsyncMock) as create_order:
-            self.exchange.buy(self.trading_pair, Decimal("1"), OrderType.MARKET)
-            self.exchange.sell(self.trading_pair, Decimal("1"), OrderType.MARKET)
-            self.async_run_with_timeout(asyncio.sleep(0.01))
+        ticker = self._slim_ticker(minp="1000", maxp="3000")
+        for trade_type, expected in ((TradeType.BUY, "2100"), (TradeType.SELL, "1900")):
+            with self.subTest(trade_type=trade_type):
+                _, _, orders = self._place_order_against_venue(trade_type, ticker, mid_price="2000")
+                self.assertEqual(Decimal(expected), Decimal(orders[0]["limit_price"]))
 
-        buy, sell = (call.kwargs for call in create_order.call_args_list)
-        self.assertEqual(Decimal("10500"), buy["price"])
-        self.assertEqual(Decimal("9500"), sell["price"])
-        self.assertEqual(TradeType.BUY, buy["trade_type"])
-        self.assertEqual(TradeType.SELL, sell["trade_type"])
+    def test_market_orders_stay_inside_the_price_band(self):
+        # 5% off the mid is beyond a 2% band: 1717.26 * 1.05 is 1803.12, against a maximum of 1751.61.
+        for trade_type in (TradeType.BUY, TradeType.SELL):
+            with self.subTest(trade_type=trade_type):
+                order_id, _, orders = self._place_order_against_venue(
+                    trade_type, self._slim_ticker(), mid_price="1717.26"
+                )
+                # Clear of the edge, since the band moves with the mark, yet still across the spread.
+                price = Decimal(orders[0]["limit_price"])
+                self.assertTrue(Decimal("1683.6") < price < Decimal("1751.61"), price)
+                self.assertEqual(trade_type is TradeType.BUY, price > Decimal("1717.26"))
+                self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+
+    def test_market_order_prices_are_rounded_into_the_price_band(self):
+        # With only one edge known there is no margin, so rounding the wrong way would cross it.
+        for trade_type, band, tick_size, expected in (
+            (TradeType.BUY, {"minp": None, "maxp": "1751.6149"}, "0.01", "1751.61"),
+            (TradeType.SELL, {"minp": "1683.6051", "maxp": None}, "0.01", "1683.61"),
+            (TradeType.BUY, {"minp": None, "maxp": "1751.61"}, "0.01", "1751.61"),
+            (TradeType.SELL, {"minp": "1683.6", "maxp": None}, "0.01", "1683.6"),
+            (TradeType.BUY, {}, "5", "1745"),
+            (TradeType.SELL, {}, "5", "1690"),
+        ):
+            with self.subTest(trade_type=trade_type, band=band, tick_size=tick_size):
+                _, _, orders = self._place_order_against_venue(
+                    trade_type, self._slim_ticker(**band), tick_size=tick_size
+                )
+                self.assertEqual(Decimal(expected), Decimal(orders[0]["limit_price"]))
+
+    def test_market_orders_without_a_mid_are_priced_from_the_mark_then_the_index(self):
+        for overrides, mid_price, expected in (
+            ({}, None, "1803.12"),
+            ({}, "NaN", "1803.12"),             # one side of the book is empty
+            ({"M": None}, None, "1802.72"),
+            ({"M": "0"}, None, "1802.72"),
+            ({"M": "not a number"}, None, "1802.72"),
+            ({"M": "Infinity"}, None, "1802.72"),
+        ):
+            with self.subTest(overrides=overrides, mid_price=mid_price):
+                ticker = self._slim_ticker(minp="1", maxp="10000", **overrides)
+                _, _, orders = self._place_order_against_venue(TradeType.BUY, ticker, mid_price=mid_price)
+                self.assertEqual(Decimal(expected), Decimal(orders[0]["limit_price"]))
+
+    def test_market_orders_are_priced_from_the_book_when_the_ticker_is_unavailable(self):
+        async def never_answers():
+            await asyncio.sleep(60)
+
+        with patch.object(CONSTANTS, "MARKET_ORDER_TICKER_TIMEOUT", 0.01, create=True):
+            for ticker in (
+                IOError("HTTP status is 500"),
+                {"error": {"code": -32000, "message": "Rate limit exceeded"}},
+                {"result": None},
+                "unexpected",
+                never_answers,
+            ):
+                with self.subTest(ticker=ticker):
+                    _, _, orders = self._place_order_against_venue(TradeType.SELL, ticker, mid_price="2000")
+                    self.assertEqual(1, len(orders))
+                    self.assertEqual(Decimal("1900"), Decimal(orders[0]["limit_price"]))
+
+    def test_market_orders_that_cannot_be_priced_are_reported_as_failed(self):
+        """
+        buy() and sell() have already returned the order id, so an executor waits on it until it is
+        told the order failed. Dropping the order silently would leave it waiting for ever.
+        """
+        for index, (trade_type, ticker, tick_size) in enumerate((
+            (TradeType.BUY, IOError("HTTP status is 500"), "0.01"),
+            (TradeType.SELL, {"error": {"code": -32000, "message": "Rate limit exceeded"}}, "0.01"),
+            (TradeType.BUY, self._slim_ticker(M=None, I=None), "0.01"),
+            (TradeType.BUY, self._slim_ticker(), "5000"),       # rounds down to nothing
+        )):
+            with self.subTest(trade_type=trade_type, ticker=ticker, tick_size=tick_size):
+                order_id, _, orders = self._place_order_against_venue(trade_type, ticker, tick_size=tick_size)
+
+                self.assertEqual([], orders)
+                self.assertNotIn(order_id, self.exchange.in_flight_orders)
+                self.assertEqual(index + 1, len(self.order_failure_logger.event_log))
+                failure: MarketOrderFailureEvent = self.order_failure_logger.event_log[index]
+                self.assertEqual(order_id, failure.order_id)
+                self.assertEqual(OrderType.MARKET, failure.order_type)
+
+    def test_cancelling_the_pricing_of_a_market_order_is_not_swallowed(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock(side_effect=asyncio.CancelledError)
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="0x1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                position_action=PositionAction.OPEN,
+            ))
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+
+    def _cancel_while_pricing(self, ticker_result: Any) -> Tuple[str, List[str]]:
+        self._simulate_trading_rules_initialized()
+        ticker_requested, answer_ticker, paths = asyncio.Event(), asyncio.Event(), []
+
+        async def api_post(path_url, **_):
+            paths.append(path_url)
+            if path_url == CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL:
+                ticker_requested.set()
+                await answer_ticker.wait()
+                if isinstance(ticker_result, BaseException):
+                    raise ticker_result
+                return ticker_result
+            return self.order_creation_request_successful_mock_response
+
+        self.exchange._api_post = api_post
+
+        async def run():
+            order_id = self.exchange.buy(
+                self.trading_pair, Decimal("1"), OrderType.MARKET, position_action=PositionAction.OPEN
+            )
+            await ticker_requested.wait()
+            order = self.exchange.in_flight_orders[order_id]
+            self.assertFalse(order.price.is_nan())
+            # A price of NaN would make the balance NaN as well.
+            self.assertFalse(self.exchange.get_available_balance(self.quote_asset).is_nan())
+
+            results = await self.exchange.cancel_all(timeout_seconds=1)
+            self.assertEqual([(order_id, True)], [(result.order_id, result.success) for result in results])
+            answer_ticker.set()
+            for _ in range(20):
+                await asyncio.sleep(0.005)
+            self.assertTrue(order.is_cancelled)
+            return order_id
+
+        return self.async_run_with_timeout(run()), paths
+
+    def test_market_orders_cancelled_while_being_priced_are_not_sent(self):
+        for index, ticker in enumerate((self._slim_ticker(), IOError("HTTP status is 500"))):
+            with self.subTest(ticker=ticker):
+                order_id, paths = self._cancel_while_pricing(ticker)
+
+                self.assertEqual([CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL], paths)
+                self.assertNotIn(order_id, self.exchange.in_flight_orders)
+                self.assertEqual(index + 1, len(self.order_cancelled_logger.event_log))
+                self.assertEqual(order_id, self.order_cancelled_logger.event_log[index].order_id)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+        self.assertEqual(set(), self.exchange._market_orders_being_priced)
+
+    def test_market_orders_remain_the_same_order_once_priced(self):
+        self._simulate_trading_rules_initialized()
+        before = []
+
+        async def api_post(path_url, **_):
+            if path_url == CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL:
+                before.extend(self.exchange.in_flight_orders.values())
+                return self._slim_ticker()
+            return self.order_creation_request_successful_mock_response
+
+        self.exchange._api_post = api_post
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="0x1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1.00001"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.OPEN,
+        ))
+
+        order = self.exchange.in_flight_orders["0x1"]
+        self.assertEqual(1, len(before))
+        self.assertIs(order, before[0])
+        self.assertEqual(Decimal("1748.20"), order.price)
+        self.assertEqual(self.exchange.quantize_order_amount(self.trading_pair, Decimal("1.00001")), order.amount)
+
+    def test_market_orders_with_an_invalid_position_action_are_not_left_tracked(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock()
+
+        with self.assertRaises(ValueError):
+            self.async_run_with_timeout(self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id="0x1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                position_action=PositionAction.NIL,
+            ))
+        self.exchange._api_post.assert_not_called()
+        self.assertEqual({}, self.exchange.in_flight_orders)
+
+    def test_limit_orders_are_not_repriced(self):
+        for order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+            for trade_type, price in ((TradeType.BUY, "1600.129"), (TradeType.SELL, "1900.129")):
+                with self.subTest(order_type=order_type, trade_type=trade_type):
+                    _, paths, orders = self._place_order_against_venue(
+                        trade_type, self._slim_ticker(), order_type=order_type, price=Decimal(price)
+                    )
+                    self.assertEqual([CONSTANTS.CREATE_ORDER_URL], paths)
+                    self.assertEqual(Decimal(price[:-1]), Decimal(orders[0]["limit_price"]))
 
     def test_instruments_are_fetched_across_every_page(self):
         first, second = {"instrument_name": "A-PERP"}, {"instrument_name": "B-PERP"}
