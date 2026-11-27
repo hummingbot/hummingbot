@@ -235,7 +235,10 @@ class BingXExchange(ExchangePyBase):
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             params=api_params,
-            is_auth_required=True
+            is_auth_required=True,
+            # Keep the raw error payload so the explicit code check below can
+            # distinguish "order not found" from request failures.
+            return_err=True,
         )
 
         if isinstance(cancel_result, dict) and cancel_result.get("code") == 0:
@@ -553,6 +556,17 @@ class BingXExchange(ExchangePyBase):
                     headers=local_headers,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
+                # BingX answers API errors with HTTP 200 and a payload without
+                # the "data" key, e.g. {"code": 100001, "msg": "..."}. Surface
+                # them as request errors here instead of letting callers crash
+                # with KeyError: 'data' on the missing key.
+                if (not return_err
+                        and isinstance(request_result, dict)
+                        and request_result.get("code", 0) != 0):
+                    raise IOError(
+                        f"Error executing request {method.name} {path_url}. "
+                        f"BingX error code is {request_result.get('code')}. "
+                        f"Error: {request_result.get('msg')}")
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
