@@ -172,30 +172,30 @@ class PMMV1(ControllerBase):
 
         # Track when each level can next create orders (for filled_order_delay)
         self._level_next_create_timestamps: Dict[str, float] = {}
-        # Track last seen executor states to detect fills
-        self._last_seen_executors: Dict[str, bool] = {}
+        # Track last seen active executor ID per level to detect fills
+        self._last_seen_executors: Dict[str, str] = {}
 
     def _detect_filled_executors(self):
         """Detect executors that were filled (not cancelled)."""
         # Get current active executor IDs by level
-        current_active_by_level = {}
-        filled_levels = set()
+        current_active_by_level: Dict[str, str] = {}
+        filled_executor_ids = set()
 
         for executor in self.executors_info:
             level_id = executor.custom_info.get("level_id", "")
 
             if executor.is_active:
-                current_active_by_level[level_id] = True
+                current_active_by_level[level_id] = executor.id
             elif executor.close_type == CloseType.POSITION_HOLD:
                 # POSITION_HOLD means the order was filled
-                filled_levels.add(level_id)
+                filled_executor_ids.add(executor.id)
 
-        # Check for levels that were active before but aren't now and were filled
-        for level_id, was_active in self._last_seen_executors.items():
-            if (was_active and
+        # Check for levels that were active before but aren't now and whose executor was filled
+        for level_id, executor_id in self._last_seen_executors.items():
+            if (executor_id and
                 level_id not in current_active_by_level and
-                    level_id in filled_levels):
-                # This level was active before, not now, and was filled
+                    executor_id in filled_executor_ids):
+                # This level was active before, not now, and its executor was filled
                 self._handle_filled_executor(level_id)
 
         # Update last seen state
