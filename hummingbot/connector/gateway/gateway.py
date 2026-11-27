@@ -12,7 +12,7 @@ Architecture:
 
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -130,6 +130,22 @@ class Gateway(GatewayBase):
         super().__init__(*args, **kwargs)
         # Store LP operation metadata for triggering proper events
         self._lp_orders_metadata: Dict[str, Dict] = {}
+        # order_id -> tx fee for a confirmed AMM add/remove-liquidity call. Kept apart
+        # from _lp_orders_metadata: that dict's consumer (_trigger_lp_events_if_needed)
+        # requires CLMM-only keys (lower_price/upper_price, a range position address)
+        # that a full-range AMM deposit has none of - populating it here would crash
+        # the next order-status poll with a KeyError instead of firing an event.
+        self._amm_lp_tx_fees: Dict[str, Decimal] = {}
+        # order_id -> (base, quote) Gateway actually removed for a confirmed AMM
+        # remove-liquidity call. The caller's own pre-close position read can be
+        # stale by the time the transaction confirms (the pool trades in between),
+        # so this is the authoritative amount to size a close-out swap from.
+        self._amm_lp_removed_amounts: Dict[str, Tuple[Decimal, Decimal]] = {}
+        # order_id -> True when a confirmed AMM remove-liquidity call's response data
+        # was unavailable (see TX_DATA_UNAVAILABLE above): neither of the two dicts
+        # above is populated for that order_id, so the caller can tell "no data" apart
+        # from "removed nothing" and must not treat the missing amounts as zero.
+        self._amm_lp_data_unavailable: Dict[str, bool] = {}
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
@@ -1026,6 +1042,7 @@ class Gateway(GatewayBase):
         trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
         position_address: Optional[str] = None,
+        pool_address: Optional[str] = None,
         max_retries: int = 10,
     ):
         """Opens a regular AMM liquidity position."""
@@ -1043,9 +1060,10 @@ class Gateway(GatewayBase):
                                   amount=Decimal(str(total_amount_in_base)),
                                   order_type=OrderType.AMM_ADD)
 
-        pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
         if not pool_address:
-            raise ValueError(f"Could not find pool for {trading_pair}")
+            pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
+            if not pool_address:
+                raise ValueError(f"Could not find pool for {trading_pair}")
 
         async def execute_add_liquidity() -> Dict[str, Any]:
             return await self._get_gateway_instance().amm_add_liquidity(
@@ -1073,6 +1091,9 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                data = transaction_result.get("data", {})
+                fee = data.get("fee", transaction_result.get("fee", 0))
+                self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -1299,13 +1320,16 @@ class Gateway(GatewayBase):
         dex_name: str,
         trading_type: str = "amm",
         position_address: Optional[str] = None,
+        pool_address: Optional[str] = None,
+        slippage_pct: Optional[float] = None,
         fail_silently: bool = False,
         max_retries: int = 10,
     ):
         """Removes liquidity from an AMM pool."""
-        pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
         if not pool_address:
-            raise ValueError(f"Could not find pool for {trading_pair}")
+            pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
+            if not pool_address:
+                raise ValueError(f"Could not find pool for {trading_pair}")
 
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
@@ -1322,6 +1346,7 @@ class Gateway(GatewayBase):
                 dex=dex_name,
                 trading_type=trading_type,
                 position_address=position_address,
+                slippage_pct=slippage_pct,
                 fail_silently=fail_silently
             )
 
@@ -1335,6 +1360,25 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
+                if transaction_result.get(TX_DATA_UNAVAILABLE):
+                    # Same gap as _clmm_remove_liquidity: writing (0, 0) here would read
+                    # to the caller as "nothing came back", sizing a close-out swap for
+                    # the executor's ENTIRE initial deposit instead of the real shortfall.
+                    # Leave the dicts unset so the caller keeps its last known amounts
+                    # and flag the gap instead.
+                    self.logger().error(
+                        f"AMM remove liquidity {transaction_hash} confirmed on-chain but Gateway's "
+                        "response data is unavailable: removed amounts could NOT be booked."
+                    )
+                    self._amm_lp_data_unavailable[order_id] = True
+                else:
+                    data = transaction_result.get("data", {})
+                    fee = data.get("fee", transaction_result.get("fee", 0))
+                    self._amm_lp_tx_fees[order_id] = Decimal(str(fee or 0))
+                    self._amm_lp_removed_amounts[order_id] = (
+                        Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                    )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
