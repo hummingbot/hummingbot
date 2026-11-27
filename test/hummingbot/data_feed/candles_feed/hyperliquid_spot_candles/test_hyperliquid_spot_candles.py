@@ -198,3 +198,12 @@ class TestHyperliquidSpotC0andles(TestCandlesBase):
     def test_ping_pong(self, mock_api):
         self.assertEqual(self.data_feed._ping_payload, CONSTANTS.PING_PAYLOAD)
         self.assertEqual(self.data_feed._ping_timeout, CONSTANTS.PING_TIMEOUT)
+
+    def test_intervals_match_the_venue(self):
+        # candleSnapshot and the candle channel serve 8h and 3d and reject 6h
+        for interval in ("8h", "3d"):
+            data_feed = HyperliquidSpotCandles(trading_pair=self.trading_pair, interval=interval)
+            data_feed._coins_dict = {"HFUN-USDC": "@1"}
+            self.assertEqual(interval, data_feed._rest_payload(start_time=1, end_time=2)["req"]["interval"])
+            self.assertEqual(interval, data_feed.ws_subscription_payload()["subscription"]["interval"])
+        self.assertNotIn("6h", self.data_feed.intervals)
