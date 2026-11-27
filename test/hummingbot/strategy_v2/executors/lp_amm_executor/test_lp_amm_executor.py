@@ -46,6 +46,9 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.create_market_order_id.return_value = "order-123"
         connector._native_currency = "SOL"
         connector.get_pool_address = AsyncMock(return_value="pool123")
+        connector.resolve_trading_pair_from_pool = AsyncMock(
+            return_value={"trading_pair": "SOL-USDC", "base_token": "SOL", "quote_token": "USDC"}
+        )
         # A real dict, like the connector's own: order_id -> Decimal tx fee for a
         # confirmed AMM add/remove-liquidity call. Left as a MagicMock attribute (its
         # default), `.pop(order_id, Decimal("0"))` would return another MagicMock
@@ -444,6 +447,25 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.config.side, TradeType.RANGE)
 
     # ---- pool-address mismatch ------------------------------------------
+
+    async def test_create_position_refuses_pool_for_a_different_pair(self):
+        """pool_address actually holds RAY-SOL, not the configured SOL-USDC pair:
+        the executor must refuse to deposit rather than sending base/quote into
+        the wrong tokens and booking them under the configured pair's symbols."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPAmmExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.resolve_trading_pair_from_pool = AsyncMock(
+            return_value={"trading_pair": "RAY-SOL", "base_token": "RAY", "quote_token": "SOL"}
+        )
+        connector._amm_add_liquidity = AsyncMock(return_value="sig123")
+
+        await executor._create_position()
+
+        connector._amm_add_liquidity.assert_not_awaited()
+        self.assertFalse(executor.lp_position_state.position_opened)
+        self.assertEqual(executor.lp_position_state.state, LPAmmExecutorStates.FAILED)
 
     async def test_create_position_uses_configured_pool_even_when_not_default(self):
         """The dex's default pool for this trading pair differs from the one
@@ -1450,6 +1472,12 @@ class TestLPAmmExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_address = AsyncMock(side_effect=Exception("rpc down"))
         self.assertTrue(await executor._pool_address_matches_config(connector))
+
+    async def test_pool_matches_trading_pair_fails_open_on_lookup_error(self):
+        executor = self.get_executor()
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.resolve_trading_pair_from_pool = AsyncMock(side_effect=Exception("rpc down"))
+        self.assertTrue(await executor._pool_matches_trading_pair(connector))
 
     # ---- fungible-LP: scale to this executor's own share -------------------
 

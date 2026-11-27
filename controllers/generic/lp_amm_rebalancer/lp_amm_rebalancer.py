@@ -8,6 +8,7 @@ from hummingbot.core.data_type.common import MarketDict
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.executors.gateway_utils import parse_provider
 from hummingbot.strategy_v2.executors.lp_amm_executor.data_types import LPAmmExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
@@ -91,6 +92,12 @@ class LPAmmRebalancer(ControllerBase):
 
     _logger: Optional[HummingbotLogger] = None
 
+    # A bare pre-flight failure (e.g. Gateway's INSUFFICIENT_BALANCE) terminates almost
+    # instantly with nothing on-chain, so without a cap determine_executor_actions would
+    # recreate the executor every tick forever, hammering Gateway/RPC. Halt instead once
+    # the same failure repeats this many times in a row.
+    MAX_CONSECUTIVE_PREFLIGHT_FAILURES: int = 3
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
@@ -113,6 +120,18 @@ class LPAmmRebalancer(ControllerBase):
         self._position_hold_quote: Decimal = Decimal("0")
 
         self._stopped_after_close: bool = False
+
+        # Consecutive bare pre-flight failures (nothing ever reached the chain), and
+        # whether that streak has crossed MAX_CONSECUTIVE_PREFLIGHT_FAILURES and halted
+        # new creation. Reset to 0 the moment any executor gets past pre-flight.
+        self._consecutive_preflight_failures: int = 0
+        self._halted_preflight_failures: bool = False
+
+        # Runs once, before this controller instance's first executor creation, to
+        # detect a position left open in the pool by a previous session (e.g. a
+        # restart while a position was active) - without it, determine_executor_actions
+        # has no record of that position and opens a fresh one on top of it.
+        self._startup_position_check_done: bool = False
 
     def active_executor(self) -> Optional[ExecutorInfo]:
         """Get the current active LP AMM executor (should be 0 or 1)."""
@@ -151,6 +170,14 @@ class LPAmmRebalancer(ControllerBase):
             )
             return actions
 
+        if self._halted_preflight_failures:
+            self.logger().debug(
+                f"Halted: {self._consecutive_preflight_failures} consecutive position-creation "
+                "failures with nothing reaching the chain - fix the underlying issue (e.g. wallet "
+                "balance) and restart the controller."
+            )
+            return actions
+
         if self._stopped_after_close:
             return actions
 
@@ -178,7 +205,7 @@ class LPAmmRebalancer(ControllerBase):
 
         if terminated_executor is not None:
             self._process_terminated_executor(terminated_executor)
-            if self._orphaned_position_address:
+            if self._orphaned_position_address or self._halted_preflight_failures:
                 return actions
             if not self.config.reopen_after_close:
                 self._stopped_after_close = True
@@ -198,13 +225,26 @@ class LPAmmRebalancer(ControllerBase):
         hold_reason = custom.get("hold_reason")
 
         # FAILED with no open transaction in flight is a genuine pre-flight rejection -
-        # nothing was ever deposited, nothing to book, safe to reopen.
+        # nothing was ever deposited, nothing to book, safe to reopen. But a config that
+        # can never succeed (e.g. the wallet can't cover base_amount/quote_amount) would
+        # otherwise fail and reopen forever - halt once the same failure repeats too often.
         if terminated_executor.close_type == CloseType.FAILED and custom.get("open_tx_hash") is None:
-            self.logger().warning(
-                f"Executor {terminated_executor.id} ended FAILED with nothing on-chain - "
-                "skipping position_hold update."
-            )
+            self._consecutive_preflight_failures += 1
+            if self._consecutive_preflight_failures >= self.MAX_CONSECUTIVE_PREFLIGHT_FAILURES:
+                self._halted_preflight_failures = True
+                self.logger().error(
+                    f"Executor {terminated_executor.id} ended FAILED with nothing on-chain "
+                    f"{self._consecutive_preflight_failures} times in a row - halting new position "
+                    "creation until the controller is restarted or reconfigured."
+                )
+            else:
+                self.logger().warning(
+                    f"Executor {terminated_executor.id} ended FAILED with nothing on-chain "
+                    f"({self._consecutive_preflight_failures}/{self.MAX_CONSECUTIVE_PREFLIGHT_FAILURES}) - "
+                    "skipping position_hold update."
+                )
             return
+        self._consecutive_preflight_failures = 0
 
         # closeout_swap_failed means the LP withdrawal already landed on-chain and the
         # close-out swap definitively did not (rejected, cancelled, or no swap_provider) -
@@ -285,8 +325,36 @@ class LPAmmRebalancer(ControllerBase):
         )
 
     async def update_processed_data(self):
-        """No external data needed - LPAmmExecutor reads pool price itself."""
-        pass
+        """No external data needed - LPAmmExecutor reads pool price itself.
+
+        Used once, on this controller instance's first tick, to check the pool for a
+        position already open there (e.g. left by a previous session before a
+        restart) before determine_executor_actions can create a fresh executor on
+        top of it.
+        """
+        if self._startup_position_check_done:
+            return
+        self._startup_position_check_done = True
+        try:
+            connector = self.market_data_provider.get_connector(self.config.connector_name)
+            dex_name, trading_type = parse_provider(self.config.lp_provider)
+            positions = await connector.get_user_positions(
+                dex_name=dex_name, trading_type=trading_type, pool_address=self.config.pool_address,
+            )
+        except Exception as e:
+            self.logger().warning(f"Could not check pool {self.config.pool_address} for an existing position: {e}")
+            return
+        has_existing_position = any(
+            info.positions or Decimal(str(getattr(info, "lp_token_amount", 0) or 0)) > 0
+            for info in positions
+        )
+        if has_existing_position:
+            self._orphaned_position_address = self.config.pool_address
+            self.logger().error(
+                f"Found a position already open in pool {self.config.pool_address} on startup "
+                "(likely left by a previous session) - halting new position creation until it "
+                "is closed or recovered manually."
+            )
 
     def to_format_status(self) -> List[str]:
         status = []
@@ -310,6 +378,11 @@ class LPAmmRebalancer(ControllerBase):
 
         if self._orphaned_position_address:
             line = f"| HALTED: orphaned position {self._orphaned_position_address} needs manual recovery"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
+
+        if self._halted_preflight_failures:
+            line = (f"| HALTED: {self._consecutive_preflight_failures} consecutive position-creation "
+                    "failures - fix the issue and restart")
             status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         executor = self.active_executor() or self.get_tracked_executor()

@@ -296,3 +296,92 @@ class TestLPAmmRebalancer(TestCase):
         self.assertEqual(len(actions), 1)
         self.assertEqual(self.controller._position_hold_base, Decimal("0"))
         self.assertEqual(self.controller._position_hold_quote, Decimal("0"))
+
+    def test_halts_after_repeated_preflight_failures(self):
+        """A config the wallet can never fund (e.g. insufficient balance) fails
+        pre-flight every time with nothing on-chain - without a cap, determine_
+        executor_actions would recreate the executor forever, hammering Gateway/RPC."""
+        for i in range(self.controller.MAX_CONSECUTIVE_PREFLIGHT_FAILURES):
+            terminated = make_executor_info(
+                f"exec-{i}",
+                RunnableStatus.TERMINATED,
+                close_type=CloseType.FAILED,
+                custom_info={},
+            )
+            self.controller._current_executor_id = f"exec-{i}"
+            self.controller.executors_info = [terminated]
+            actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertTrue(self.controller._halted_preflight_failures)
+        self.assertEqual(
+            self.controller._consecutive_preflight_failures,
+            self.controller.MAX_CONSECUTIVE_PREFLIGHT_FAILURES,
+        )
+
+        # Halted even once the failed executor is no longer in executors_info.
+        self.controller.executors_info = []
+        self.assertEqual(self.controller.determine_executor_actions(), [])
+
+    def test_preflight_failure_streak_resets_on_success(self):
+        failed = make_executor_info(
+            "exec-1", RunnableStatus.TERMINATED, close_type=CloseType.FAILED, custom_info={},
+        )
+        self.controller._current_executor_id = "exec-1"
+        self.controller.executors_info = [failed]
+        self.controller.determine_executor_actions()
+        self.assertEqual(self.controller._consecutive_preflight_failures, 1)
+
+        succeeded = make_executor_info(
+            "exec-2",
+            RunnableStatus.TERMINATED,
+            close_type=CloseType.COMPLETED,
+            custom_info={
+                "base_amount": "1", "quote_amount": "100", "tx_fee_quote": "0",
+                "initial_base_amount": "1", "initial_quote_amount": "100",
+            },
+        )
+        self.controller._current_executor_id = "exec-2"
+        self.controller.executors_info = [succeeded]
+        self.controller.determine_executor_actions()
+
+        self.assertEqual(self.controller._consecutive_preflight_failures, 0)
+        self.assertFalse(self.controller._halted_preflight_failures)
+
+    def test_startup_check_halts_on_pre_existing_position(self):
+        """A position left open by a previous session must be detected before the
+        controller's first CreateExecutorAction, not silently opened on top of."""
+        connector = AsyncMock()
+        connector.get_user_positions = AsyncMock(
+            return_value=[MagicMock(positions=[MagicMock(position_address="nft-1")])]
+        )
+        self.market_data_provider.get_connector.return_value = connector
+        self.controller.executors_info = []
+
+        asyncio.run(self.controller.update_processed_data())
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
+
+    def test_startup_check_allows_creation_when_pool_is_empty(self):
+        connector = AsyncMock()
+        connector.get_user_positions = AsyncMock(return_value=[])
+        self.market_data_provider.get_connector.return_value = connector
+        self.controller.executors_info = []
+
+        asyncio.run(self.controller.update_processed_data())
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(len(actions), 1)
+        self.assertIsNone(self.controller._orphaned_position_address)
+
+    def test_startup_check_only_runs_once(self):
+        connector = AsyncMock()
+        connector.get_user_positions = AsyncMock(return_value=[])
+        self.market_data_provider.get_connector.return_value = connector
+
+        asyncio.run(self.controller.update_processed_data())
+        asyncio.run(self.controller.update_processed_data())
+
+        connector.get_user_positions.assert_awaited_once()

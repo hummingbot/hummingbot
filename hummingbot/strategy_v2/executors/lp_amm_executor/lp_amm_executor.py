@@ -336,6 +336,37 @@ class LPAmmExecutor(ExecutorBase):
             return False
         return True
 
+    async def _pool_matches_trading_pair(self, connector) -> bool:
+        """Fatal check: the configured pool must actually hold the configured
+        trading pair's two tokens.
+
+        Unlike _pool_address_matches_config (which only flags a non-default pool
+        for the same pair and is not an error), this catches a pool_address for a
+        completely different pair - e.g. a RAY-SOL pool configured under
+        trading_pair=SOL-USDC - which would otherwise deposit/withdraw the wrong
+        tokens while reporting them under the configured pair's symbols.
+        """
+        try:
+            resolved = await connector.resolve_trading_pair_from_pool(
+                self.config.pool_address, dex_name=self.lp_dex_name, trading_type=self.lp_trading_type,
+            )
+        except Exception as e:
+            self.logger().warning(f"Could not verify tokens for pool {self.config.pool_address}: {e}")
+            return True
+        if resolved is None:
+            self.logger().warning(f"Could not verify tokens for pool {self.config.pool_address}")
+            return True
+        base, quote = split_hb_trading_pair(self.config.trading_pair)
+        pool_tokens = {str(resolved.get("base_token", "")).upper(), str(resolved.get("quote_token", "")).upper()}
+        if pool_tokens != {base.upper(), quote.upper()}:
+            self.logger().error(
+                f"Configured pool {self.config.pool_address} holds "
+                f"{resolved.get('base_token')}-{resolved.get('quote_token')}, not {self.config.trading_pair} - "
+                "refusing to deposit/withdraw into the wrong pool."
+            )
+            return False
+        return True
+
     def _bail_if_terminated(self) -> bool:
         """True when a forced/early stop landed while this create was suspended
         (on the pool lock or the pre-add snapshot) and nothing has been submitted
@@ -361,6 +392,12 @@ class LPAmmExecutor(ExecutorBase):
             return
 
         await self._pool_address_matches_config(connector)
+
+        if not await self._pool_matches_trading_pair(connector):
+            self._handle_create_failure(ValueError(
+                f"Pool {self.config.pool_address} does not hold {self.config.trading_pair}"
+            ))
+            return
 
         price = self._current_price if self._current_price else Decimal("0")
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
