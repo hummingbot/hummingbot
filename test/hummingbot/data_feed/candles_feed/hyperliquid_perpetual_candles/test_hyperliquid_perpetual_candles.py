@@ -165,6 +165,14 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
         self.assertEqual(self.data_feed._ping_payload, CONSTANTS.PING_PAYLOAD)
         self.assertEqual(self.data_feed._ping_timeout, CONSTANTS.PING_TIMEOUT)
 
+    def test_intervals_match_the_venue(self):
+        # candleSnapshot and the candle channel serve 8h and 3d and reject 6h
+        for interval in ("8h", "3d"):
+            data_feed = HyperliquidPerpetualCandles(trading_pair=self.trading_pair, interval=interval)
+            self.assertEqual(interval, data_feed._rest_payload(start_time=1, end_time=2)["req"]["interval"])
+            self.assertEqual(interval, data_feed.ws_subscription_payload()["subscription"]["interval"])
+        self.assertNotIn("6h", self.data_feed.intervals)
+
 
 class TestHyperliquidPerpetualCandlesHIP3(TestCandlesBase):
     """Tests for HIP-3 market support (e.g., xyz:XYZ100-USD)"""
