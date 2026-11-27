@@ -16,6 +16,10 @@ class LighterAuth(AuthBase):
         self._auth_token_expiry_ts = 0
         self._lock = asyncio.Lock()
 
+    def invalidate_auth_token(self):
+        self._auth_token = None
+        self._auth_token_expiry_ts = 0
+
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         auth_token = await self._get_auth_token()
         headers = dict(request.headers or {})
