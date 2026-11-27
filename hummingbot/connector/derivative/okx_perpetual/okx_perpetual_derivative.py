@@ -628,10 +628,13 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         for data in parsed_resps:
             ex_trading_pair = data["instId"]
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+            if hb_trading_pair not in self._contract_sizes:
+                # Contract sizes are loaded with the trading rules; the next positions update will handle it
+                continue
             position_side = self.get_position_side(data)
             unrealized_pnl = Decimal(data["upl"]) if bool(data["upl"]) else Decimal(str(0.0))
             entry_price = Decimal(data["avgPx"]) if bool(data["avgPx"]) else Decimal(str(0.0))
-            amount = self.get_position_amount(data)
+            amount = self.get_position_amount(hb_trading_pair, data)
             leverage = Decimal(data["lever"]) if bool(data["lever"]) else Decimal(str(0.0))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
@@ -655,15 +658,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             position_side = PositionSide.LONG if position_msg.get("posSide") == "long" else PositionSide.SHORT
         return position_side
 
-    @staticmethod
-    def get_position_amount(position_msg: Dict[str, Any]) -> Decimal:
-        if bool(position_msg["notionalUsd"]):
-            notional_usd = Decimal(position_msg["notionalUsd"])
-            avg_px = Decimal(position_msg["avgPx"])
-            amount = abs(notional_usd / avg_px) if notional_usd != s_decimal_0 else s_decimal_0
-            return max(amount, round(amount))
-        else:
-            return Decimal("0.0")
+    def get_position_amount(self, trading_pair: str, position_msg: Dict[str, Any]) -> Decimal:
+        """
+        Returns the absolute position size in base asset units.
+
+        OKX reports ``pos`` as a number of contracts (signed in one-way/net mode), so it is converted with the
+        instrument contract value. ``notionalUsd`` is valued at the mark price, so dividing it by ``avgPx`` does
+        not give the position size.
+        """
+        pos = position_msg.get("pos")
+        if not pos:
+            return s_decimal_0
+        return abs(self._format_size_to_amount(trading_pair, Decimal(pos)))
 
     async def _process_account_position_event(self, position_msg: Dict[str, Any]):
         """
@@ -672,10 +678,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         """
         if bool(position_msg.get("instId")):
             ex_trading_pair = position_msg["instId"]
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+            symbol_map = await self.trading_pair_symbol_map()
+            if ex_trading_pair not in symbol_map:
+                # The positions channel reports every swap in the account, including instruments the connector
+                # does not support (e.g. inverse swaps). Those positions are ignored.
+                return
+            trading_pair = symbol_map[ex_trading_pair]
+            if trading_pair not in self._contract_sizes:
+                # Contract sizes are loaded with the trading rules; the positions polling will update it later
+                return
             position_side = self.get_position_side(position_msg)
             entry_price = Decimal(position_msg["avgPx"]) if bool(position_msg["avgPx"]) else Decimal("0")
-            amount = self.get_position_amount(position_msg)
+            amount = self.get_position_amount(trading_pair, position_msg)
             leverage = Decimal(position_msg["lever"]) if bool(position_msg["lever"]) else Decimal("0")
             unrealized_pnl = Decimal(position_msg["upl"]) if bool(position_msg["upl"]) else Decimal("0")
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
