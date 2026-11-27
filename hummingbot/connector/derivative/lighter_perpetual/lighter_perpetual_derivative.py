@@ -50,6 +50,10 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 60.0
+    # Recovering one order's fills pages through account trades. Each page is a 600-weight request.
+    ORDER_FILLS_MAX_PAGES = 5
+    # Allowance for clock differences when deciding a trade predates the order.
+    ORDER_FILLS_LOOKBACK_BUFFER = 60.0
 
     def __init__(
         self,
@@ -391,20 +395,104 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             for order in self._order_tracker.all_fillable_orders.values()
         }
         for market_id in market_ids:
-            response = await self._api_get(
-                path_url=CONSTANTS.RECENT_TRADES_PATH_URL,
-                params={
-                    "market_id": market_id,
-                    "limit": 100,
-                },
-            )
+            response = await self._request_account_trades(market_id=market_id)
             for trade in response.get("trades", []):
                 trade_update = self._trade_update_from_trade(trade)
                 if trade_update is not None:
                     self._order_tracker.process_trade_update(trade_update)
 
-    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        return []
+    async def _all_trade_updates_for_order(
+        self,
+        order: InFlightOrder,
+        order_index: Optional[int] = None,
+        expected_filled_amount: Optional[Decimal] = None,
+    ) -> List[TradeUpdate]:
+        # Recovery path, so unlike _update_trade_history it doesn't stop at the newest page. With the
+        # exchange order index the query is filtered to that order; without it, it pages back through
+        # the account's trades in the market. Either way it stops once the order's fills add up to the
+        # filled amount, or when it reaches trades older than the order.
+        await self._ensure_account_ready()
+        market = self.market_info_for_trading_pair(order.trading_pair)
+        target_amount = expected_filled_amount if expected_filled_amount else order.amount
+        oldest_relevant_time = order.creation_timestamp - self.ORDER_FILLS_LOOKBACK_BUFFER
+        trade_updates = []
+        filled_amount = Decimal("0")
+        cursor = None
+        for _ in range(self.ORDER_FILLS_MAX_PAGES):
+            try:
+                response = await self._request_account_trades(
+                    market_id=market.market_id, order_index=order_index, cursor=cursor
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as request_error:
+                if cursor is None:
+                    raise
+                # Keep the fills already found on earlier pages rather than dropping them.
+                self.logger().warning(
+                    f"Failed to fetch more fills for order {order.client_order_id}. Error: {request_error}"
+                )
+                return trade_updates
+            trades = response.get("trades", [])
+            reached_older_trades = False
+            for trade in trades:
+                trade_time = normalize_timestamp_to_seconds(trade.get("timestamp") or trade.get("transaction_time"))
+                if 0 < trade_time < oldest_relevant_time:
+                    reached_older_trades = True
+                    break
+                trade_update = self._trade_update_from_trade(trade)
+                if trade_update is not None and trade_update.client_order_id == order.client_order_id:
+                    trade_updates.append(trade_update)
+                    filled_amount += trade_update.fill_base_amount
+            cursor = response.get("next_cursor")
+            if reached_older_trades or filled_amount >= target_amount or not trades or not cursor:
+                return trade_updates
+        self.logger().warning(
+            f"Stopped looking for fills of order {order.client_order_id} after {self.ORDER_FILLS_MAX_PAGES} "
+            f"pages of account trades. Found {filled_amount} of {target_amount}; older fills may be missing."
+        )
+        return trade_updates
+
+    async def _process_missing_fills(
+        self, tracked_order: InFlightOrder, order_index: Optional[int], filled_amount: Decimal
+    ):
+        # The order is done on the exchange but the tracker hasn't applied all of its fills, e.g. it
+        # filled after this cycle's trade history read. Fetch them now so the order isn't closed with
+        # a zero or short executed amount.
+        try:
+            trade_updates = await self._all_trade_updates_for_order(
+                order=tracked_order, order_index=order_index, expected_filled_amount=filled_amount
+            )
+            for trade_update in trade_updates:
+                self._order_tracker.process_trade_update(trade_update)
+        except asyncio.CancelledError:
+            raise
+        except Exception as request_error:
+            self.logger().warning(
+                f"Failed to fetch fills for order {tracked_order.client_order_id}. Error: {request_error}"
+            )
+
+    async def _request_account_trades(
+        self, market_id: int, order_index: Optional[int] = None, cursor: Optional[str] = None
+    ) -> Dict[str, Any]:
+        # Query the account's own fills rather than the public market tape: on liquid markets the
+        # last 100 public trades only cover a few seconds, so our fills fall out of that window
+        # long before the next polling cycle. Results are newest first.
+        params = {
+            "account_index": self._account_index,
+            "market_id": market_id,
+            "sort_by": "timestamp",
+            "limit": 100,
+        }
+        if order_index is not None:
+            params["order_index"] = order_index
+        if cursor:
+            params["cursor"] = cursor
+        return await self._api_get(
+            path_url=CONSTANTS.TRADES_PATH_URL,
+            params=params,
+            is_auth_required=True,
+        )
 
     @staticmethod
     def _order_misc_updates(order_data: Dict[str, Any], state: OrderState) -> Optional[Dict[str, Any]]:
@@ -435,6 +523,20 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 )
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {tracked_order.client_order_id}")
         new_state = order_state_from_order_data(order_data)
+        filled_amount = self._safe_decimal(order_data.get("filled_base_amount"))
+        # The order tracker finalizes the order on this update, so any fills it hasn't seen yet have to
+        # be applied first. That includes canceled or failed orders that were partially filled.
+        fills_missing = new_state == OrderState.FILLED or (
+            new_state in (OrderState.CANCELED, OrderState.FAILED)
+            and filled_amount > tracked_order.executed_amount_base
+        )
+        if fills_missing and not tracked_order.is_done:
+            order_index = order_data.get("order_index")
+            await self._process_missing_fills(
+                tracked_order=tracked_order,
+                order_index=int(order_index) if order_index is not None else None,
+                filled_amount=filled_amount,
+            )
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=normalize_timestamp_to_seconds(
