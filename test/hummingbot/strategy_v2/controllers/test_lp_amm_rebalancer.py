@@ -82,6 +82,10 @@ class TestLPAmmRebalancer(TestCase):
             market_data_provider=self.market_data_provider,
             actions_queue=self.actions_queue,
         )
+        # Tests below exercise determine_executor_actions directly, not the startup
+        # pool-position check - mark it done so it doesn't gate them. The startup
+        # check tests further down reset this to False themselves.
+        self.controller._startup_position_check_done = True
 
     def test_creates_executor_when_none_active(self):
         self.controller.executors_info = []
@@ -351,6 +355,7 @@ class TestLPAmmRebalancer(TestCase):
     def test_startup_check_halts_on_pre_existing_position(self):
         """A position left open by a previous session must be detected before the
         controller's first CreateExecutorAction, not silently opened on top of."""
+        self.controller._startup_position_check_done = False
         connector = AsyncMock()
         connector.get_user_positions = AsyncMock(
             return_value=[MagicMock(positions=[MagicMock(position_address="nft-1")])]
@@ -365,6 +370,7 @@ class TestLPAmmRebalancer(TestCase):
         self.assertEqual(self.controller._orphaned_position_address, self.config.pool_address)
 
     def test_startup_check_allows_creation_when_pool_is_empty(self):
+        self.controller._startup_position_check_done = False
         connector = AsyncMock()
         connector.get_user_positions = AsyncMock(return_value=[])
         self.market_data_provider.get_connector.return_value = connector
@@ -377,6 +383,7 @@ class TestLPAmmRebalancer(TestCase):
         self.assertIsNone(self.controller._orphaned_position_address)
 
     def test_startup_check_only_runs_once(self):
+        self.controller._startup_position_check_done = False
         connector = AsyncMock()
         connector.get_user_positions = AsyncMock(return_value=[])
         self.market_data_provider.get_connector.return_value = connector
@@ -385,3 +392,35 @@ class TestLPAmmRebalancer(TestCase):
         asyncio.run(self.controller.update_processed_data())
 
         connector.get_user_positions.assert_awaited_once()
+
+    def test_startup_check_blocks_creation_before_it_has_run(self):
+        """Before the startup check has completed even once, determine_executor_actions
+        must not create a position - only a successful check clears the gate."""
+        self.controller._startup_position_check_done = False
+        self.controller.executors_info = []
+
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(actions, [])
+
+    def test_startup_check_retries_after_failed_read(self):
+        """A failed read (e.g. a Gateway error) is not proof the pool is empty - it
+        must be retried on the next tick, and creation stays halted until a read
+        actually succeeds, instead of opening a second position on top of one the
+        failed read never got a chance to see."""
+        self.controller._startup_position_check_done = False
+        connector = AsyncMock()
+        connector.get_user_positions = AsyncMock(side_effect=[Exception("rpc timeout"), []])
+        self.market_data_provider.get_connector.return_value = connector
+        self.controller.executors_info = []
+
+        asyncio.run(self.controller.update_processed_data())
+        self.assertFalse(self.controller._startup_position_check_done)
+        self.assertEqual(self.controller.determine_executor_actions(), [])
+
+        asyncio.run(self.controller.update_processed_data())
+        self.assertTrue(self.controller._startup_position_check_done)
+        actions = self.controller.determine_executor_actions()
+
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(connector.get_user_positions.await_count, 2)

@@ -160,6 +160,17 @@ class LPAmmRebalancer(ControllerBase):
     def determine_executor_actions(self) -> List[ExecutorAction]:
         actions: List[ExecutorAction] = []
 
+        # The startup check (update_processed_data) must have actually succeeded once
+        # before any position is created - a pool read that keeps failing is not proof
+        # the pool is empty, and creating on top of an unseen existing position would
+        # double the real on-chain exposure.
+        if not self._startup_position_check_done:
+            self.logger().debug(
+                f"Halted: waiting for the startup check of pool {self.config.pool_address} "
+                "for an existing position to succeed."
+            )
+            return actions
+
         # An orphaned on-chain position (close retries exhausted) must be recovered
         # before any new position is opened - creating a fresh executor here would
         # stack live exposure on top of the stranded one.
@@ -330,11 +341,12 @@ class LPAmmRebalancer(ControllerBase):
         Used once, on this controller instance's first tick, to check the pool for a
         position already open there (e.g. left by a previous session before a
         restart) before determine_executor_actions can create a fresh executor on
-        top of it.
+        top of it. A failed read is retried on the next tick rather than being
+        treated as proof the pool is empty - determine_executor_actions blocks
+        creation until this has actually succeeded once.
         """
         if self._startup_position_check_done:
             return
-        self._startup_position_check_done = True
         try:
             connector = self.market_data_provider.get_connector(self.config.connector_name)
             dex_name, trading_type = parse_provider(self.config.lp_provider)
@@ -342,8 +354,11 @@ class LPAmmRebalancer(ControllerBase):
                 dex_name=dex_name, trading_type=trading_type, pool_address=self.config.pool_address,
             )
         except Exception as e:
-            self.logger().warning(f"Could not check pool {self.config.pool_address} for an existing position: {e}")
+            self.logger().warning(
+                f"Could not check pool {self.config.pool_address} for an existing position: {e} - will retry."
+            )
             return
+        self._startup_position_check_done = True
         has_existing_position = any(
             info.positions or Decimal(str(getattr(info, "lp_token_amount", 0) or 0)) > 0
             for info in positions
