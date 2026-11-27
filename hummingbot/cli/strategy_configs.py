@@ -90,12 +90,23 @@ def resolve_config_type(filename: str, explicit: Optional[str] = None) -> str:
 
 
 def available_controllers() -> List[str]:
-    """Controller module names that can be scaffolded (controllers/<type>/<name>.py)."""
+    """Controller module names that can be scaffolded: a flat controllers/<type>/<name>.py, or a
+    package controllers/<type>/<name>/<name>.py whose __init__ re-exports the config class."""
     base = Path(prefix_path()) / CONTROLLERS_MODULE
     if not base.exists():
         return []
-    return sorted({f.stem for type_dir in base.iterdir() if type_dir.is_dir() and not type_dir.name.startswith("__")
-                   for f in type_dir.glob("*.py") if not f.name.startswith("__")})
+    names: Set[str] = set()
+    for type_dir in base.iterdir():
+        if not type_dir.is_dir() or type_dir.name.startswith("__"):
+            continue
+        for entry in type_dir.iterdir():
+            if entry.name.startswith("__"):
+                continue
+            if entry.is_file() and entry.suffix == ".py":
+                names.add(entry.stem)
+            elif entry.is_dir() and (entry / f"{entry.name}.py").exists():
+                names.add(entry.name)
+    return sorted(names)
 
 
 def available_scripts() -> List[str]:
@@ -289,12 +300,17 @@ def edit_config(path: Path, stype: str, key: str, value: str) -> Tuple[Any, Set[
 
 
 def resolve_controller_class_by_name(controller_name: str):
-    """Find a controller's config class + its type by module name (e.g. 'lp_jit')."""
+    """Find a controller's config class + its type by module name (e.g. 'lp_jit'), whether it's
+    a flat controllers/<type>/<name>.py or a package controllers/<type>/<name>/<name>.py."""
     import controllers
 
     base = Path(controllers.__file__).parent
     for type_dir in sorted(base.iterdir()):
-        if type_dir.is_dir() and (type_dir / f"{controller_name}.py").exists():
+        if not type_dir.is_dir():
+            continue
+        is_flat = (type_dir / f"{controller_name}.py").exists()
+        is_package = (type_dir / controller_name / f"{controller_name}.py").exists()
+        if is_flat or is_package:
             ctype = type_dir.name
             cls = controller_config_class({"controller_type": ctype, "controller_name": controller_name})
             return cls, ctype
