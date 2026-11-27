@@ -43,6 +43,10 @@ class LiquidationsBase(NetworkBase):
     The class uses the WS Assistants for all the IO operations,
     """
 
+    # LiquidationsConfig fields (besides the pairs and the retention) that LiquidationsFactory hands to a source's
+    # constructor. Empty for a source that needs nothing else, like Binance.
+    CONFIG_FIELDS = ()
+
     def __init__(self, trading_pairs: Set[str], max_retention_seconds: int):
         super().__init__()
         async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
