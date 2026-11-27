@@ -1,23 +1,10 @@
 .ONESHELL:
 .PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down link-cli
 
-DYDX ?= 0
-INJECTIVE ?= 0
-UV_EXTRA :=
-ifeq ($(DYDX),1)
-  UV_EXTRA += --extra dydx
-endif
-ifeq ($(INJECTIVE),1)
-  UV_EXTRA += --extra injective
-endif
-
 test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
  	--ignore="test/hummingbot/connector/exchange/ndax/" \
- 	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
- 	--ignore="test/hummingbot/connector/exchange/injective_v2/" \
- 	--ignore="test/hummingbot/connector/derivative/injective_v2_perpetual/" \
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \
  	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
@@ -47,7 +34,7 @@ install:
 		exit 1; \
 	fi
 	@mkdir -p logs
-	@uv sync $(UV_EXTRA) || { echo "Error: uv sync failed; the environment was not installed." >&2; exit 1; }
+	@uv sync || { echo "Error: uv sync failed; the environment was not installed." >&2; exit 1; }
 # Make `hummingbot` importable from any directory (replaces `conda develop .`).
 # `uv sync` does not remove this file, but it is lost if the venv is recreated -- re-run `make install` then.
 	@site_packages="$$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")" && \
@@ -60,9 +47,9 @@ install:
 			sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get install -y build-essential; \
 		fi; \
 	fi
-	@uv run $(UV_EXTRA) python setup.py build_ext --inplace || { echo "Error: Cython build failed." >&2; exit 1; }
+	@uv run python setup.py build_ext --inplace || { echo "Error: Cython build failed." >&2; exit 1; }
 # Not fatal: fails when this is not a usable git checkout (e.g. a source tarball).
-	@uv run $(UV_EXTRA) pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."
+	@uv run pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."
 	@ln -sf "$(CURDIR)/bin/hbot" ".venv/bin/hbot"
 	@echo "Done. Run: source .venv/bin/activate && hbot --help"
 
@@ -84,7 +71,7 @@ link-cli:
 	echo "Now 'hbot <command>' dispatches to your source env or the docker container."
 
 run:
-	uv run $(UV_EXTRA) ./bin/hummingbot_quickstart.py $(ARGS)
+	uv run ./bin/hummingbot_quickstart.py $(ARGS)
 
 setup:
 	@read -r -p "Include Gateway? [y/N] " ans; \

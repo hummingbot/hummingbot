@@ -1434,7 +1434,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates={{}})",
             )
         )
 
@@ -1534,12 +1534,22 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
 
+        error_message = (
+            f"Order amount 0.0001 is lower than minimum order size 0.01 for the pair {self.trading_pair}. "
+            "The order will not be created."
+        )
+        invalid_order_misc_updates = {
+            "error_message": error_message,
+            "error_type": "ValueError",
+        }
         self.assertTrue(
             self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
+                "INFO",
+                f"Order {order_id_for_invalid_order} has failed. Order Update: "
+                f"OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order_id_for_invalid_order}', exchange_order_id=None, "
+                f"misc_updates={repr(invalid_order_misc_updates)})"
             )
         )
         self.assertTrue(
@@ -1547,7 +1557,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates={{}})"
             )
         )
 

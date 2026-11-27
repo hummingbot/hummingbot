@@ -24,6 +24,7 @@ dependencies = [
     "cryptography>=41.0.2",
     "decibel-python-sdk==0.2.1",
     "eth-account>=0.13.0",
+    "gql[aiohttp]>=3.4.1", # for dYdX v4; conda-forge split gql's aiohttp transport into "gql-with-aiohttp", PyPI's equivalent is the gql[aiohttp] extra
     "lighter-sdk==1.1.2",
     # NOT "msgpack-python": on PyPI that name is a dead alias frozen at 0.5.6 (2018), whose packb encodes
     # strings >31 bytes differently and so changes the Hyperliquid action hash (orders carry a 34-char cloid).
@@ -34,7 +35,11 @@ dependencies = [
     "pandas>=2.3.2",
     "pandas-ta>=0.4.71b",
     "prompt_toolkit>=3.0.39",
-    "protobuf>=4.23.3",
+    # v4-proto's own metadata only declares "protobuf>=4.23", far below the gencode version its
+    # wheel is actually compiled against -- resolving without this floor picks an older runtime
+    # (seen: 5.29.6) that protobuf's own gencode/runtime check then refuses at import time
+    # ("Detected incompatible Protobuf Gencode/Runtime versions ... gencode 6.31.1 runtime 5.29.6").
+    "protobuf>=6.31.1",
     "psutil>=5.9.5",
     "ptpython>3.0.25",
     "pydantic>=2",
@@ -56,41 +61,16 @@ dependencies = [
     "ujson>=5.7.0",
     # This needs to be restricted to <2.0 - tests fail otherwise
     "urllib3>=1.26.15,<2.0",
+    "v4-proto", # for dYdX v4; conda-forge packaged this same project as "dydxprotocol-v4-proto-py", PyPI's name is "v4-proto" (import name: v4_proto)
     "web3",
     "xrpl-py==4.4.0",
 ]
-
-[project.urls]
-Homepage = "https://github.com/hummingbot/hummingbot"
-
-[project.optional-dependencies]
-# Extra packages for the dYdX v4 build (`make install DYDX=1`), on top of the base dependencies.
 # (environment_dydx.yml also pinned "backports>=1.0" — dropped: nothing in the codebase imports
 # it directly, and it has no release compatible with every Python this project's requires-python
 # permits, which made dependency resolution unsatisfiable.)
-dydx = [
-    "v4-proto", # conda-forge packaged this same project as "dydxprotocol-v4-proto-py"; PyPI's name is "v4-proto" (import name: v4_proto)
-    "gql[aiohttp]>=3.4.1", # conda-forge split gql's aiohttp transport into "gql-with-aiohttp"; PyPI's equivalent is the gql[aiohttp] extra
-    # v4-proto's own metadata only declares "protobuf>=4.23", far below the gencode version its
-    # wheel is actually compiled against -- resolving the base "protobuf>=4.23.3" dependency
-    # without this floor picks an older runtime (seen: 5.29.6) that protobuf's own gencode/runtime
-    # check then refuses at import time ("Detected incompatible Protobuf Gencode/Runtime
-    # versions ... gencode 6.31.1 runtime 5.29.6"). Declaring the floor directly in this extra (not
-    # in the base dependency, which would wrongly also apply to the "injective" extra's own
-    # protobuf<6.0.0 ceiling) lets uv fork the two extras onto their own compatible protobuf
-    # version instead of colliding on one.
-    "protobuf>=6.31.1",
-]
-# Extra packages for the injective_v2 connectors (`make install INJECTIVE=1`). injective-py
-# bundles its own compiled copy of the Cosmos SDK's protobuf files under a different name than
-# v4-proto's copy of those same proto definitions; importing both in one process trips protobuf's
-# global descriptor pool ("a file with that name has already been added to this registry"), which
-# is what broke the dYdX connector when injective-py was still an unconditional base dependency.
-# Keeping injective-py behind its own extra, mutually exclusive with "dydx" (see
-# [tool.uv].conflicts below), means only one of the two colliding proto copies is ever installed.
-injective = [
-    "injective-py==1.14.*",
-]
+
+[project.urls]
+Homepage = "https://github.com/hummingbot/hummingbot"
 
 [dependency-groups]
 # Exactly what `python setup.py build_ext --inplace` needs on top of the runtime dependencies
@@ -117,29 +97,13 @@ dev = [
 # dependency venv, the same division of labor conda had between `conda env create` and
 # the separate `setup.py build_ext --inplace` step.
 package = false
-# injective-py (extra "injective") and v4-proto (extra "dydx") bundle colliding compiled copies
-# of the same Cosmos protobuf files (see the "injective" extra's comment above) — never let uv
-# resolve or sync both extras into the same environment at once.
-conflicts = [
-    [
-        { extra = "dydx" },
-        { extra = "injective" },
-    ],
-]
 # The Makefile/install/start scripts are bash-only (no native Windows support, same as the old
-# conda-based flow), and at least one dydx-extra dependency has no Windows distribution on PyPI
+# conda-based flow), and at least one dependency (v4-proto) has no Windows distribution on PyPI
 # (conda-forge built its own). Scope universal resolution to the platforms actually supported.
 environments = [
     "sys_platform == 'linux'",
     "sys_platform == 'darwin'",
 ]
-# bip32==5.0.0 (pulled in transitively by injective-py) caps coincurve<21; coincurve<21 ships no
-# prebuilt wheel for Python>=3.12, forcing a source build whose own build-system pin is unbounded
-# and picks up a scikit-build-core that broke backward compat with coincurve's pyproject.toml,
-# failing before the build starts. bip32 is unmaintained (5.0.0 is 3+ years old) and its only use
-# of coincurve is the same secp256k1 FFI surface coincurve>=21 still exposes, so force the newer,
-# wheel-having version rather than waiting on a fix that likely isn't coming.
-override-dependencies = ["coincurve>=21.0.0"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
