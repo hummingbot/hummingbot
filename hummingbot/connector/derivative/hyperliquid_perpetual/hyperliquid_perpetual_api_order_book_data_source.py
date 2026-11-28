@@ -288,7 +288,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 index_price=Decimal(str(ctx.get("oraclePx", "0"))),
                 mark_price=Decimal(str(ctx.get("markPx", "0"))),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal(str(ctx.get("openInterest", ctx.get("funding", "0")))),
+                rate=Decimal(str(ctx.get("funding", "0"))),
             )
 
             message_queue.put_nowait(funding_info)
