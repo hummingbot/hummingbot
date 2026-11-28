@@ -550,6 +550,26 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position_executor.config.id = "123"
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
+        position_executor.early_stop.assert_called_once()
+
+    def test_stop_executor_ignores_terminated_executor(self):
+        """A stop action can arrive after the executor already terminated (e.g. a
+        GridExecutor that finished control_shutdown_process cleared levels_by_state
+        before stopping), so re-entering early_stop would crash — see #7720."""
+        executor = self._make_unfinished_executor("123")
+        executor.is_closed = True
+        executor.status = RunnableStatus.TERMINATED
+        self.orchestrator.active_executors["test"] = [executor]
+        self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
+        executor.early_stop.assert_not_called()
+
+    def test_stop_executor_ignores_shutting_down_executor(self):
+        """An executor already SHUTTING_DOWN keeps the close_type it chose; a second
+        early_stop would overwrite it with the action's keep_position."""
+        executor = self._make_unfinished_executor("123", RunnableStatus.SHUTTING_DOWN)
+        self.orchestrator.active_executors["test"] = [executor]
+        self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
+        executor.early_stop.assert_not_called()
 
     def test_stop_executor_already_auto_stored_is_ignored_without_error(self):
         """check_manual_kill_switch() (scripts/v2_with_controllers.py) stops every executor in
