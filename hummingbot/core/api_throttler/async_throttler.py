@@ -24,12 +24,17 @@ class AsyncRequestContext(AsyncRequestContextBase):
         :return: True if it is within capacity to add a new task
         """
         if self._rate_limit is not None:
+            now: float = self._time()
             list_of_limits: List[Tuple[RateLimit, int]] = [(self._rate_limit,
                                                             self._rate_limit.weight)] + self._related_limits
+            # The exchange asked us to wait on this limit, or on a limit linked to it.
+            # Don't send anything until that wait is over.
+            if any(now < self._resets.get(rate_limit.limit_id, 0.0) for rate_limit, _ in list_of_limits):
+                return False
+
             limit_id_to_task_log_map = collections.defaultdict(list)
             for task in self._task_logs:
                 limit_id_to_task_log_map[task.rate_limit.limit_id].append(task)
-            now: float = self._time()
             for rate_limit, weight in list_of_limits:
                 capacity_used: int = sum([task.weight
                                           for task in limit_id_to_task_log_map[rate_limit.limit_id]
@@ -78,4 +83,5 @@ class AsyncThrottler(AsyncThrottlerBase):
             lock=self._lock,
             safety_margin_pct=self._safety_margin_pct,
             retry_interval=self._retry_interval,
+            resets=self._resets,
         )
