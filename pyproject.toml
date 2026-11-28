@@ -24,7 +24,7 @@ dependencies = [
     "cryptography>=41.0.2",
     "decibel-python-sdk==0.2.1",
     "eth-account>=0.13.0",
-    "lighter-sdk==1.1.2",
+    "lighter-sdk==1.2.0",
     # NOT "msgpack-python": on PyPI that name is a dead alias frozen at 0.5.6 (2018), whose packb encodes
     # strings >31 bytes differently and so changes the Hyperliquid action hash (orders carry a 34-char cloid).
     "msgpack>=1.0",

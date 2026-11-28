@@ -1556,7 +1556,7 @@ requires-dist = [
     { name = "eth-account", specifier = ">=0.13.0" },
     { name = "gql", extras = ["aiohttp"], marker = "extra == 'dydx'", specifier = ">=3.4.1" },
     { name = "injective-py", marker = "extra == 'injective'", specifier = "==1.14.*" },
-    { name = "lighter-sdk", specifier = "==1.1.2" },
+    { name = "lighter-sdk", specifier = "==1.2.0" },
     { name = "msgpack", specifier = ">=1.0" },
     { name = "numba", specifier = ">=0.61.2" },
     { name = "numpy", specifier = ">=2.2.6" },
@@ -1707,7 +1707,7 @@ wheels = [
 
 [[package]]
 name = "lighter-sdk"
-version = "1.1.2"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or (extra == 'extra-10-hummingbot-dydx' and extra == 'extra-10-hummingbot-injective')" },
@@ -1720,9 +1720,9 @@ dependencies = [
     { name = "urllib3", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or (extra == 'extra-10-hummingbot-dydx' and extra == 'extra-10-hummingbot-injective')" },
     { name = "websockets", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or (extra == 'extra-10-hummingbot-dydx' and extra == 'extra-10-hummingbot-injective')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/77/7a24ede8465d951db5105e7086143c9de2883cdf256394477a943a2db5fa/lighter_sdk-1.1.2.tar.gz", hash = "sha256:74a1bb777b883e7c90a64f474174522397eae0b591e1d3337e9c6220a32243f9", size = 27510115, upload-time = "2026-07-10T14:22:38.658Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/f6/764517ac480b90ff9608720efad3f3bbcbe015e30a94a657a1c830129c4a/lighter_sdk-1.2.0.tar.gz", hash = "sha256:9e98d9c14f6fa02d91d653a5c8db494a48bab6c250677e2ed6c3c206406eb4f1", size = 29441657, upload-time = "2026-11-24T20:07:04.368Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/08/b3562fc3fc583895bbcef369c781b37c40e4be6649c13a3ff94733dae6fa/lighter_sdk-1.1.2-py3-none-any.whl", hash = "sha256:3e24211acd06081001e39dece2fa1f10e69405908272a51ce5d70f284175b5a0", size = 27797376, upload-time = "2026-07-10T14:22:31.381Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/5f/6c4c930fa10d2da33f37fad9b6616239cbcc1e857414ff949163c8a1ab25/lighter_sdk-1.2.0-py3-none-any.whl", hash = "sha256:9aa78e01550b7d7689e1cd67a8004fbd1b942391cf001f1d9dfd2beac38bd71b", size = 29903862, upload-time = "2026-11-24T20:07:00.862Z" },
 ]
 
 [[package]]
