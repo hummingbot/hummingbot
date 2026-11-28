@@ -94,7 +94,12 @@ class UtilsTest(unittest.TestCase):
                 util_module_path: str = (
                     f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
                 )
-                util_module = importlib.import_module(util_module_path)
+                try:
+                    util_module = importlib.import_module(util_module_path)
+                except ModuleNotFoundError:
+                    # Optional connector dependency (e.g. injective-py) not installed by default;
+                    # AllConnectorSettings.create_connector_settings() skips it the same way.
+                    continue
                 connector_config = getattr(util_module, "KEYS")
 
                 self.assertIsInstance(connector_config, BaseConnectorConfigMap)

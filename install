@@ -1,35 +1,13 @@
 #!/bin/bash
 
-cd $(dirname $0)
+cd "$(dirname "$0")" || exit 1
 
-# Compatibility logic for older Anaconda versions.
-if [ "${CONDA_EXE} " == " " ]; then
-    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
-	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
-	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda || \
-	    find $CONDA/bin/conda) 2>/dev/null)
-fi
-
-if [ "${CONDA_EXE}_" == "_" ]; then
-    echo "Please install Anaconda w/ Python 3.7+ first"
-    echo "See: https://www.anaconda.com/download"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Please install uv first: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
 fi
 
-# Normalize CONDA_EXE to the base install's conda. If an env that ships its own
-# conda (e.g. the hummingbot env) is active, CONDA_EXE points at .../envs/<name>/bin/conda,
-# and running "env create" from there nests the new env under .../envs/<name>/envs/.
-# Strip any /envs/<name> segment back to the base prefix so we always use base conda.
-case "${CONDA_EXE}" in
-    */envs/*) CONDA_EXE="${CONDA_EXE%%/envs/*}/bin/conda" ;;
-esac
-
-CONDA_BIN=$(dirname ${CONDA_EXE})
-ENV_FILE_1="setup/environment.yml"
-ENV_FILE_2="setup/environment_dydx.yml"
-
-# The default is ENV_FILE_1
-ENV_FILE=$ENV_FILE_1
+mkdir -p logs
 
 # Parse command line arguments
 USE_DYDX=false
@@ -47,40 +25,25 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# If you use the --dydx flag, switch to ENV_FILE_2
+UV_EXTRA=()
 if [ "$USE_DYDX" = true ]; then
-    ENV_FILE=$ENV_FILE_2
+    UV_EXTRA=(--extra dydx)
     echo "install dydx version."
 fi
 
-# Capture the env list first to avoid SIGPIPE (BrokenPipeError) when grep -q
-# exits early, and anchor the match so "hummingbot-site" et al. don't match.
-ENV_LIST=$(${CONDA_EXE} env list)
-if echo "$ENV_LIST" | egrep -qe "^hummingbot[[:space:]]"; then
-    ${CONDA_EXE} env update -f $ENV_FILE
+uv sync "${UV_EXTRA[@]}" || { echo "Error: uv sync failed; the environment was not installed." >&2; exit 1; }
+
+# Expose the `hbot` CLI on PATH within the venv.
+ln -sf "$(pwd)/bin/hbot" "$(pwd)/.venv/bin/hbot"
+
+# Make `hummingbot` importable from any directory (replaces `conda develop .`).
+# `uv sync` does not remove this file, but it is lost if the venv is recreated -- re-run ./install then.
+SITE_PACKAGES="$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
+if [ -d "$SITE_PACKAGES" ]; then
+    pwd > "$SITE_PACKAGES/hummingbot-dev.pth"
 else
-    ${CONDA_EXE} env create -f $ENV_FILE
+    echo "Warning: could not locate the venv's site-packages; 'import hummingbot' will only work from the repo root."
 fi
-
-source "${CONDA_BIN}/activate" hummingbot
-
-# Additional dependencies for Mac OS
-if [ "$(uname)" == "Darwin" ]; then
-    conda install -n hummingbot -y appnope
-fi
-
-# Add the project directory to module search paths.
-conda develop .
-
-# Expose the `hbot` CLI on PATH within the env. `conda develop` does not install console scripts,
-# so symlink the launcher into the env's bin directory.
-ln -sf "$(pwd)/bin/hbot" "${CONDA_PREFIX}/bin/hbot"
-
-# For some reason, this needs to be installed outside of the environment file,
-# or it'll give you the graphviz install error.
-python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
-
-pre-commit install
 
 # Check for build-essential (only relevant for Debian-based systems)
 if [ "$(uname)" = "Linux" ]; then
@@ -90,3 +53,6 @@ if [ "$(uname)" = "Linux" ]; then
         sudo apt-get install -y build-essential
     fi
 fi
+
+# Not fatal: fails when this is not a usable git checkout (e.g. a source tarball).
+uv run pre-commit install || echo "Warning: 'pre-commit install' failed; git hooks were not installed."

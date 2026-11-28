@@ -2,9 +2,9 @@
 Backtest pmm_mister with position hold support and optional chart output.
 
 Usage:
-    conda run -n hummingbot python scripts/backtest_pmm_mister.py
-    conda run -n hummingbot python scripts/backtest_pmm_mister.py --days 3 --chart
-    conda run -n hummingbot python scripts/backtest_pmm_mister.py --chart --output backtest.html
+    uv run python scripts/backtest_pmm_mister.py
+    uv run python scripts/backtest_pmm_mister.py --days 3 --chart
+    uv run python scripts/backtest_pmm_mister.py --chart --output backtest.html
 """
 import argparse
 import asyncio

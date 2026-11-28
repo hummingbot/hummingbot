@@ -224,6 +224,19 @@ class GatewayHttpClientLPRouteTest(IsolatedAsyncioWrapperTestCase):
         _, _, payload = self._sent(mock_req)
         self.assertNotIn("positionAddress", payload)
 
+    async def test_amm_remove_liquidity_sends_slippage_pct(self):
+        # Without this, Gateway falls back to its own default and a user's
+        # max_slippage_pct (and the executor's widened retry tolerance) has no
+        # effect on a withdrawal at all.
+        with self._capture() as mock_req:
+            await self.client.amm_remove_liquidity(
+                network="mainnet-beta", chain="solana", wallet_address="WALLET",
+                pool_address="POOL", percentage=100.0, dex="meteora",
+                position_address="POS", slippage_pct=2.5,
+            )
+        _, _, payload = self._sent(mock_req)
+        self.assertEqual(2.5, payload["slippagePct"])
+
     async def test_amm_position_info_uses_unified_route_and_keys(self):
         with self._capture() as mock_req:
             await self.client.amm_position_info(
