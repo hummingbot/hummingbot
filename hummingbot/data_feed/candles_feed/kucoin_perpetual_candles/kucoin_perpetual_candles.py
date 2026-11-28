@@ -123,7 +123,7 @@ class KucoinPerpetualCandles(CandlesBase):
             60: 120 * 24,  # 1 hour granularity, 120 days
             120: 240 * 24,  # 2 hours granularity, 240 days
             240: 480 * 24,  # 4 hours granularity, 480 days
-            480: 720 * 24  # 6 hours granularity, 720 days
+            480: 720 * 24  # 8 hours granularity, 720 days
         }
         if granularity in granularity_limits:
             max_duration = granularity_limits[granularity] * 60  # convert days to minutes
