@@ -491,12 +491,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_trading_rule(self):
-        price_info = self.trading_rules_request_mock_response[1][0]
         coin_info = self.trading_rules_request_mock_response[0]["universe"][0]
         collateral_token = self.quote_asset
 
         step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
-        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+        price_size = Decimal(1).scaleb(-(CONSTANTS.PERP_MAX_PRICE_DECIMALS - coin_info["szDecimals"]))
         min_order_size = step_size
 
         return TradingRule(self.trading_pair,
@@ -3890,6 +3889,45 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             Decimal("68014"),
             self.exchange.quantize_order_price(btc_pair, Decimal("68013.75")),
         )
+
+    def test_price_increment_follows_sz_decimals(self):
+        # PERP_MAX_PRICE_DECIMALS (6) - szDecimals
+        self.assertEqual(Decimal("0.1"), self.exchange._price_increment(5))
+        self.assertEqual(Decimal("0.0001"), self.exchange._price_increment(2))
+        self.assertEqual(Decimal("0.00001"), self.exchange._price_increment(1))
+        self.assertEqual(Decimal("0.000001"), self.exchange._price_increment(0))
+
+    def test_format_trading_rules_price_increment_does_not_depend_on_mark_price_string(self):
+        self._simulate_trading_rules_initialized()
+        response = [
+            {"universe": [{"maxLeverage": 50, "name": "BTC", "onlyIsolated": False, "szDecimals": 5},
+                          {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False, "szDecimals": 4}]},
+            # An integer mark has no decimal part; a mark ending in zeros reads as fewer decimals.
+            [{"markPx": "36733", "openInterest": "34.37756"}, {"markPx": "1923.5", "openInterest": "1.0"}],
+        ]
+
+        rules = {rule.trading_pair: rule for rule in
+                 self.async_run_with_timeout(self.exchange._format_trading_rules(response))}
+
+        self.assertEqual(Decimal("0.1"), rules[combine_to_hb_trading_pair("BTC", "USD")].min_price_increment)
+        self.assertEqual(Decimal("0.01"), rules[combine_to_hb_trading_pair("ETH", "USD")].min_price_increment)
+
+    def test_quantize_order_price_when_mark_price_is_a_round_number(self):
+        # Observed on SUI (szDecimals=1): with the mark at exactly 0.6 the rule refresh produced a 0.1 tick,
+        # market closes priced at mid * slippage were quantized to 0.6 below the ask and rejected
+        # ("Order could not immediately match"), and grid levels collapsed onto 0.6 / 0.8.
+        self._simulate_trading_rules_initialized()
+        response = [
+            {"universe": [{"maxLeverage": 50, "name": "ETH", "onlyIsolated": False, "szDecimals": 1}]},
+            [{"markPx": "0.6", "openInterest": "1.0"}],
+        ]
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+        self.exchange._trading_rules = {rule.trading_pair: rule for rule in rules}
+        pair = combine_to_hb_trading_pair("ETH", "USD")
+
+        self.assertEqual(Decimal("0.00001"), self.exchange._trading_rules[pair].min_price_increment)
+        self.assertEqual(Decimal("0.6031"), self.exchange.quantize_order_price(pair, Decimal("0.60310")))
+        self.assertEqual(Decimal("0.60312"), self.exchange.quantize_order_price(pair, Decimal("0.6031234")))
 
     def test_quantize_order_price_does_not_pad_the_scale(self):
         pair = combine_to_hb_trading_pair("ETH", "USD")

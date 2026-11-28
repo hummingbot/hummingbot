@@ -5,6 +5,8 @@ EXCHANGE_NAME = "hyperliquid_perpetual"
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
 MIN_NOTIONAL_SIZE = 10
+# Perp limitPx: at most 5 significant figures and at most PERP_MAX_PRICE_DECIMALS - szDecimals decimals
+PERP_MAX_PRICE_DECIMALS = 6
 
 # === Builder code support (HGP-87) ===
 # Attach a Foundation builder code to mainnet orders (omitted on testnet/vault). The fee only takes
