@@ -7,7 +7,7 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.data_feed.candles_feed.kucoin_perpetual_candles import KucoinPerpetualCandles
+from hummingbot.data_feed.candles_feed.kucoin_perpetual_candles import KucoinPerpetualCandles, constants as CONSTANTS
 
 
 class TestKucoinPerpetualCandles(TestCandlesBase):
@@ -479,3 +479,17 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
 
         with self.assertRaises(Exception):
             self.run_async_with_timeout(self.data_feed._get_symbols_dict(), timeout=5)
+
+    def test_rest_granularity_is_the_interval_in_minutes(self):
+        for interval, granularity in CONSTANTS.GRANULARITIES.items():
+            self.assertEqual(self.data_feed.interval_to_seconds[interval], granularity * 60, interval)
+        # the kline endpoint has no 360 minute granularity, so 6h cannot be served
+        self.assertNotIn("6h", CONSTANTS.INTERVALS)
+        self.assertEqual(set(CONSTANTS.INTERVALS) - {"1s"}, set(CONSTANTS.GRANULARITIES))
+
+    def test_rest_candles_params_for_daily_interval(self):
+        data_feed = KucoinPerpetualCandles(trading_pair=self.trading_pair, interval="1d")
+        data_feed.symbols_dict = self.get_symbols_dict_mock()
+        end_time = int(data_feed._time())
+        params = data_feed._get_rest_candles_params(start_time=end_time - 10 * 86400, end_time=end_time)
+        self.assertEqual(1440, params["granularity"])

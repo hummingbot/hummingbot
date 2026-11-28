@@ -24,10 +24,10 @@ INTERVALS = bidict({
     "1h": "1hour",
     "2h": "2hour",
     "4h": "4hour",
-    "6h": "6hour",
     "8h": "8hour",
     "12h": "12hour",
     "1d": "1day",
+    "1w": "1week",
 })
 
 GRANULARITIES = bidict({
@@ -38,10 +38,10 @@ GRANULARITIES = bidict({
     "1h": 60,  # Up to 120 days
     "2h": 120,  # Up to 240 days
     "4h": 240,  # Up to 480 days
-    "6h": 480,  # Up to 720 days
-    "8h": 720,
-    "12h": 1440,
-    "1d": 10080,
+    "8h": 480,  # Up to 720 days
+    "12h": 720,
+    "1d": 1440,
+    "1w": 10080,
 })
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
 # The kucoin_perpetual connector throttles per-endpoint (no global weight pool), so this feed cannot
